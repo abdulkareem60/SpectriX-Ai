@@ -81,6 +81,9 @@ class FileSource:
                 raise SourceError(f"Video has no readable frames: {self.path}")
             first = False
             offset += timedelta(seconds=pass_frames * frame_period)
+            if self._stop.is_set():
+                log.info("Stopped after %d frames", index)
+                return
             if not self.loop:
                 log.info("End of video after %d frames", index)
                 return

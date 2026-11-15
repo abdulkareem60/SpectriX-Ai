@@ -75,6 +75,7 @@ On the sample video this sends 2 events, one per person, at about 53 s into the 
 | API rejects an event (401, 409, 422) | Not retried. Logged and kept in the outbox, marked `retryable: false`, for someone to inspect |
 | Webcam/RTSP drops | Reconnects with exponential backoff (1 s doubling to 30 s), forever unless `max_reconnect_attempts` is set |
 | Ctrl+C | Finishes the frame, gives queued events up to 15 s to send, and saves the rest to the outbox. A second Ctrl+C exits immediately |
+| Annotated video (`--annotated x.mp4`) | Written as `x.partial.mp4` and renamed to `x.mp4` only when the worker stops normally (end of video, `q`, Ctrl+C), because an MP4 becomes playable only once it is finalized. If the worker is killed or its window closed, only the unplayable `x.partial.mp4` remains: rerun to get the video. Codec is H.264 on Windows (Media Foundation) and MPEG-4 Part 2 elsewhere |
 
 ## Zones
 

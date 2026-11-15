@@ -90,6 +90,8 @@ def run_pipeline(
                 if annotated_path:
                     if sink is None:
                         sink = VideoSink(annotated_path, fps_hint() / frame_stride, (w, h))
+                        log.info("Writing annotated video (%s) to %s; it becomes playable when the worker stops normally",
+                                 sink.codec, annotated_path)
                     sink.write(img)
                 if show_window:
                     import cv2
@@ -108,7 +110,9 @@ def run_pipeline(
     finally:
         stats.seconds = time.monotonic() - t0
         if sink:
-            sink.close()
+            final = sink.close()
+            if final:
+                log.info("Annotated video saved: %s (%d frames, %s)", final, sink.frames, sink.codec)
         if show_window:
             import cv2
 

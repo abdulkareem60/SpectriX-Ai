@@ -45,17 +45,52 @@ def _label(img: np.ndarray, text: str, org: tuple[int, int], color: tuple[int, i
     cv2.putText(img, text, (x + 2, y - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
 
 
+def partial_path(path: str | Path) -> Path:
+    """Where the video is written until it is finalized: review.mp4 -> review.partial.mp4."""
+    p = Path(path)
+    return p.with_name(f"{p.stem}.partial{p.suffix}")
+
+
 class VideoSink:
-    """Writes annotated frames to an .mp4 (review copy; stays on this machine, never in Git)."""
+    """Writes annotated frames to an .mp4 review copy (stays on this machine, never in Git).
+
+    An MP4 is only playable after its index (the `moov` box) is written, which happens in close().
+    So frames go to `<name>.partial.mp4` and the file is renamed to `<name>.mp4` only after close()
+    succeeds. If the worker is killed (window closed, process ended), the leftover file keeps the
+    `.partial` name instead of looking like a finished but unplayable video.
+
+    Codec: H.264 through Windows Media Foundation when available (plays in standard players and
+    browsers); otherwise MPEG-4 Part 2 through OpenCV's FFmpeg (OpenCV's pip build has no H.264 encoder).
+    """
 
     def __init__(self, path: str, fps: float, size: tuple[int, int]) -> None:
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        self._w = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps or 10.0, size)
-        if not self._w.isOpened():
-            raise RuntimeError(f"Could not open video writer for {path}")
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._tmp = partial_path(self.path)
+        self._tmp.unlink(missing_ok=True)
+        fps = fps or 10.0
+        self._w, self.codec = None, ""
+        for api, fourcc, label in ((getattr(cv2, "CAP_MSMF", None), "avc1", "H.264"), (cv2.CAP_FFMPEG, "mp4v", "MPEG-4 Part 2")):
+            if api is None:
+                continue
+            w = cv2.VideoWriter(str(self._tmp), api, cv2.VideoWriter_fourcc(*fourcc), fps, size)
+            if w.isOpened():
+                self._w, self.codec = w, label
+                break
+            w.release()
+        if self._w is None:
+            raise RuntimeError(f"Could not open a video writer for {self.path}")
+        self.frames = 0
 
     def write(self, frame: np.ndarray) -> None:
         self._w.write(frame)
+        self.frames += 1
 
-    def close(self) -> None:
+    def close(self) -> Path | None:
+        """Finalize the file and give it its real name. Returns the final path, or None if nothing was written."""
         self._w.release()
+        if self.frames == 0:
+            self._tmp.unlink(missing_ok=True)
+            return None
+        self._tmp.replace(self.path)
+        return self.path
