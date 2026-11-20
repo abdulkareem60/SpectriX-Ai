@@ -14,6 +14,17 @@ def event_schema() -> dict:
 
 
 @pytest.fixture(scope="session")
+def api_zone_module():
+    """The API's zone contract module (backend/app/schemas/zones.py): ZoneV1 and its polygon checks."""
+    sys.path.insert(0, str(REPO / "backend"))
+    try:
+        from app.schemas import zones
+    finally:
+        sys.path.remove(str(REPO / "backend"))
+    return zones
+
+
+@pytest.fixture(scope="session")
 def api_event_model():
     """The API's own request model (backend/app/schemas/events.py), so worker payloads are checked
     against exactly what POST /v1/events accepts. Needs only pydantic, not FastAPI."""

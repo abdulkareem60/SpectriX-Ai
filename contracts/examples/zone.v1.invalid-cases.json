@@ -1,0 +1,24 @@
+{
+  "description": "Invalid zone v1 payloads. Each case changes the valid example (zone.v1.json) with `set` (replace top-level fields) and says which layer must reject it: 'schema' = JSON Schema rejects it (and so does the API model); 'python' = passes JSON Schema, only the API model (backend/app/schemas/zones.py) rejects it. Non-finite numbers (NaN, Infinity) are not valid JSON, so that case lives in the Python tests only.",
+  "cases": [
+    { "name": "missing reference frame", "layer": "schema", "remove": ["reference_frame"] },
+    { "name": "unknown field", "layer": "schema", "set": { "color": "red" } },
+    { "name": "id with capitals and spaces", "layer": "schema", "set": { "zone_id": "Zone A" } },
+    { "name": "unsupported kind", "layer": "schema", "set": { "kind": "loitering" } },
+    { "name": "version zero", "layer": "schema", "set": { "version": 0 } },
+    { "name": "blank name", "layer": "schema", "set": { "name": "   " } },
+    { "name": "zero frame width", "layer": "schema", "set": { "reference_frame": { "width": 0, "height": 576, "captured_at": "2026-11-18T06:13:47Z" } } },
+    { "name": "capture time without timezone", "layer": "schema", "set": { "reference_frame": { "width": 768, "height": 576, "captured_at": "2026-11-18T06:13:47" } } },
+    { "name": "x outside 0..1", "layer": "schema", "set": { "points": [{ "x": 0.1, "y": 0.5 }, { "x": 1.2, "y": 0.6 }, { "x": 0.3, "y": 0.9 }] } },
+    { "name": "pixel coordinates instead of fractions", "layer": "schema", "set": { "points": [{ "x": 0, "y": 288 }, { "x": 323, "y": 363 }, { "x": 430, "y": 576 }] } },
+    { "name": "only two points", "layer": "schema", "set": { "points": [{ "x": 0.1, "y": 0.5 }, { "x": 0.4, "y": 0.6 }] } },
+    { "name": "33 points (more than 32)", "layer": "schema", "generate": "circle_33" },
+    { "name": "[x, y] pairs instead of objects", "layer": "schema", "set": { "points": [[0.1, 0.5], [0.4, 0.6], [0.3, 0.9]] } },
+    { "name": "exact duplicate vertex (first point repeated at the end)", "layer": "schema", "set": { "points": [{ "x": 0.1, "y": 0.5 }, { "x": 0.4, "y": 0.6 }, { "x": 0.3, "y": 0.9 }, { "x": 0.1, "y": 0.5 }] } },
+    { "name": "near-duplicate vertices", "layer": "python", "expect": "duplicate", "set": { "points": [{ "x": 0.1, "y": 0.5 }, { "x": 0.4, "y": 0.6 }, { "x": 0.4000000001, "y": 0.6 }, { "x": 0.3, "y": 0.9 }] } },
+    { "name": "crossing edges (bow tie)", "layer": "python", "expect": "cross", "set": { "points": [{ "x": 0.1, "y": 0.5 }, { "x": 0.5, "y": 0.9 }, { "x": 0.5, "y": 0.5 }, { "x": 0.1, "y": 0.9 }] } },
+    { "name": "vertex touching another edge", "layer": "python", "expect": "cross", "set": { "points": [{ "x": 0.1, "y": 0.5 }, { "x": 0.5, "y": 0.5 }, { "x": 0.5, "y": 0.9 }, { "x": 0.3, "y": 0.5 }, { "x": 0.1, "y": 0.9 }] } },
+    { "name": "all points on one line", "layer": "python", "expect": "area", "set": { "points": [{ "x": 0.1, "y": 0.1 }, { "x": 0.2, "y": 0.2 }, { "x": 0.3, "y": 0.3 }] } },
+    { "name": "smaller than the minimum area", "layer": "python", "expect": "area", "set": { "points": [{ "x": 0.5, "y": 0.5 }, { "x": 0.52, "y": 0.5 }, { "x": 0.52, "y": 0.52 }, { "x": 0.5, "y": 0.52 }] } }
+  ]
+}

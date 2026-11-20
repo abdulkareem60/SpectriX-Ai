@@ -118,7 +118,7 @@ Frontend mock data must match the contract examples exactly, so switching to the
 
 - **Next.js frontend:** sign-in, plus calling the API with the user's ID token.
 - **Media upload and evidence links**, with a storage provider to confirm.
-- **Configuration through the API instead of TOML:** cameras, zones and schedules, stored in Firestore, read by the worker.
+- **Configuration through the API instead of TOML:** cameras, zones and schedules, stored in Firestore, read by the worker. The zone payload is already defined: [zone contract v1](../contracts/README.md#zone-v1), with validation in `backend/app/schemas/zones.py`. Endpoints, storage and the worker side are not built yet.
 - **Camera health:** a worker heartbeat to the API, and an offline incident.
 - **More event types and their services:** loitering, line crossing, occupancy, unattended objects, possible fall; plus recognition and reports.
 - **Deployment and hosting:** to confirm ([project brief §9](project-brief.md#9-open-decisions)).
