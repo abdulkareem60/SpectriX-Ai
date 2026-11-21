@@ -1,6 +1,8 @@
-# NigahSense
+# SpectriX Ai
 
 **Intelligent Surveillance & Safety** — an AI-assisted surveillance and safety monitoring web application.
+
+> **Name change.** The project was called NigahSense. Its display name is now **SpectriX Ai**. Some technical identifiers still use the old name until a planned migration: the repository URL, the `nigah_worker` package, `NIGAHSENSE_*` environment variables, the `demo-nigahsense` Firebase project ID and the `x-nigahsense-polygon-rules` schema key. Keep using them exactly as written for now.
 
 | Document | Purpose |
 |---|---|

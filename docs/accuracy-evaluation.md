@@ -1,6 +1,6 @@
 # Accuracy evaluation plan
 
-Accuracy is NigahSense's highest priority. This plan says how we label video, what we measure, how we record results, and how later features will be evaluated. The tool itself, `nigah_worker.evaluation` (commands and ground-truth format), is described in [worker/README.md → Evaluate accuracy](../worker/README.md#evaluate-accuracy-no-api-or-firestore-needed). Feature definitions are in [requirements.md](requirements.md).
+Accuracy is SpectriX Ai's highest priority. This plan says how we label video, what we measure, how we record results, and how later features will be evaluated. The tool itself, `nigah_worker.evaluation` (commands and ground-truth format), is described in [worker/README.md → Evaluate accuracy](../worker/README.md#evaluate-accuracy-no-api-or-firestore-needed). Feature definitions are in [requirements.md](requirements.md).
 
 ## Tests are not accuracy
 

@@ -1,4 +1,4 @@
-# NigahSense requirements
+# SpectriX Ai requirements
 
 What each of the 12 agreed features must do, how we will know it works, and where it stands **in the code today**. Scope and team roles come from the [project brief](project-brief.md); system design is in [architecture.md](architecture.md); how accuracy is measured is in [accuracy-evaluation.md](accuracy-evaluation.md).
 

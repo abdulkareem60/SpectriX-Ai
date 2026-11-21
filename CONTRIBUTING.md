@@ -1,4 +1,4 @@
-# Contributing to NigahSense
+# Contributing to SpectriX Ai
 
 How the four of us work in this repository. Scope and roles: [project brief](docs/project-brief.md). What to build: [requirements](docs/requirements.md). How it fits together: [architecture](docs/architecture.md).
 

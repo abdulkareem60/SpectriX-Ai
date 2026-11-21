@@ -1,4 +1,4 @@
-# NigahSense tracker settings: Ultralytics ByteTrack (8.4.x defaults) with one change.
+# SpectriX Ai tracker settings: Ultralytics ByteTrack (8.4.x defaults) with one change.
 #
 # fuse_score: False (default True)
 #   With True, ByteTrack multiplies box overlap (IoU) by the detection score when matching. A person

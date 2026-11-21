@@ -96,7 +96,7 @@ def run_pipeline(
                 if show_window:
                     import cv2
 
-                    cv2.imshow("NigahSense worker (press q to stop)", img)
+                    cv2.imshow("SpectriX Ai worker (press q to stop)", img)
                     if cv2.waitKey(1) & 0xFF == ord("q"):
                         stop.set()
 

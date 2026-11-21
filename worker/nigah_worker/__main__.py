@@ -28,7 +28,7 @@ log = logging.getLogger("nigah_worker")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(prog="nigah_worker", description="NigahSense restricted-zone vision worker")
+    p = argparse.ArgumentParser(prog="nigah_worker", description="SpectriX Ai restricted-zone vision worker")
     p.add_argument("--config", default="config/worker.example.toml")
     p.add_argument("--source", choices=["file", "webcam", "rtsp"], help="override source.type")
     p.add_argument("--video", help="override source.path (implies --source file)")

@@ -1,8 +1,8 @@
-# NigahSense — Project Brief
+# SpectriX Ai — Project Brief
 
 **Intelligent Surveillance & Safety** · Initial brief for the implementation team · Times in Asia/Karachi (PKT)
 
-NigahSense is a web application that analyses camera and video feeds, detects safety-relevant events and lets an operator review each incident with its video evidence. Our two priorities are **accurate detection** and a **polished, readable, responsive interface** (light and dark modes) that is honest about uncertain detections.
+SpectriX Ai is a web application that analyses camera and video feeds, detects safety-relevant events and lets an operator review each incident with its video evidence. Our two priorities are **accurate detection** and a **polished, readable, responsive interface** (light and dark modes) that is honest about uncertain detections.
 
 > **Status labels used below:** **Agreed** = decided by the team · **Proposed** = recommended, needs team sign-off · **To confirm** = open question.
 
@@ -15,7 +15,7 @@ NigahSense is a web application that analyses camera and video feeds, detects sa
 | Operator | Watch cameras, receive alerts, review evidence, record what happened |
 | Supervisor / admin | Configure cameras, zones and rules; manage registered people; export reports |
 
-Manual monitoring misses events and leaves no searchable record. NigahSense flags *possible* events for a human to confirm; it does not replace the operator's judgement.
+Manual monitoring misses events and leaves no searchable record. SpectriX Ai flags *possible* events for a human to confirm; it does not replace the operator's judgement.
 
 The earlier **Claude Design preview** is a preserved visual reference only; its interactions, detections and sample photos are mock-ups, not working features.
 

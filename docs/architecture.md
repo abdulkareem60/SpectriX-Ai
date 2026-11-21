@@ -1,4 +1,4 @@
-# NigahSense architecture
+# SpectriX Ai architecture
 
 How the parts fit together **as built today**, and where planned parts will connect. Anything not yet in the code is marked **Proposed**. Feature status is in [requirements.md](requirements.md); setup and commands are in the [root README](../README.md) and [worker/README.md](../worker/README.md).
 

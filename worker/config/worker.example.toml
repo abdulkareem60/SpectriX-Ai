@@ -1,4 +1,4 @@
-# NigahSense vision worker - example configuration (safe to commit: no secrets).
+# SpectriX Ai vision worker - example configuration (safe to commit: no secrets).
 # Copy to config/worker.toml for your own changes. Secrets (API key, RTSP URL) go in worker/.env.
 # Relative paths are relative to the folder you run the worker from (worker/).
 

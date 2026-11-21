@@ -1,1 +1,1 @@
-"""NigahSense vision worker: video source -> person tracker -> restricted-zone rule -> event API."""
+"""SpectriX Ai vision worker: video source -> person tracker -> restricted-zone rule -> event API."""
