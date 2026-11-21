@@ -6,7 +6,7 @@ import { Monitor, AlertTriangle, Settings, LogOut, Eye } from "lucide-react";
 import { useAuth } from "./AuthProvider";
 
 const navItems = [
-  { label: "Live Monitoring", href: "/", icon: Monitor },
+  { label: "Live Monitoring", href: "/dashboard", icon: Monitor },
   { label: "Incidents", href: "/incidents", icon: AlertTriangle },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
@@ -27,7 +27,7 @@ export default function Sidebar() {
                  bg-[#0a0f1e] border-r border-slate-800 z-20"
     >
       {/* Branding */}
-      <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-800">
+      <Link href="/" className="flex items-center gap-3 px-5 py-5 border-b border-slate-800">
         <div
           className="flex items-center justify-center w-9 h-9 rounded-lg
                      bg-cyan-500/15 border border-cyan-500/40
@@ -37,19 +37,18 @@ export default function Sidebar() {
         </div>
         <div>
           <span className="block text-sm font-bold tracking-wide text-white">
-            SpectriX AI
+            SpectriX Ai
           </span>
           <span className="block text-[10px] text-slate-400 tracking-widest uppercase">
             Surveillance Dashboard
           </span>
         </div>
-      </div>
+      </Link>
 
       {/* Nav links */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navItems.map(({ label, href, icon: Icon }) => {
-          const isActive =
-            href === "/" ? pathname === "/" : pathname.startsWith(href);
+          const isActive = pathname === href || pathname.startsWith(`${href}/`);
 
           return (
             <Link

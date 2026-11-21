@@ -1,10 +1,20 @@
 "use client";
 
+// Operator sign-in. Layout and form design ported from Musaykah's AuthForm
+// (feature/incident-review-ui); the simulated sign-in is replaced by Firebase Auth.
+// No sign-up: operator accounts and roles are created by an administrator.
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FirebaseError } from "firebase/app";
+import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
+import AuthShowcase from "@/components/AuthShowcase";
+import ThemeToggle from "@/components/ThemeToggle";
 import { useAuth } from "@/components/AuthProvider";
 import { AUTH_EMULATOR_HOST } from "@/lib/config";
+
+const input =
+  "w-full rounded-xl border border-slate-200 bg-white/70 py-3 pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-400/15 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-500";
 
 function signInMessage(err: unknown): string {
   if (err instanceof FirebaseError) {
@@ -14,12 +24,13 @@ function signInMessage(err: unknown): string {
     if (err.code === "auth/network-request-failed") {
       return AUTH_EMULATOR_HOST
         ? `Cannot reach the Auth emulator at ${AUTH_EMULATOR_HOST}. Is it running?`
-        : "Cannot reach Firebase Auth. Check your connection.";
+        : "Cannot reach the sign-in service. Check your connection.";
     }
     if (err.code === "auth/too-many-requests") return "Too many attempts. Wait a moment and try again.";
+    if (err.code === "auth/user-disabled") return "This account has been disabled.";
     return `Sign-in failed (${err.code}).`;
   }
-  return "Sign-in failed.";
+  return "Sign-in failed. Please try again.";
 }
 
 export default function LoginPage() {
@@ -27,83 +38,150 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
-  const submit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError("");
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setError("Enter a valid email address.");
+    if (!password) return setError("Enter your password.");
+
     setBusy(true);
-    setError(null);
     try {
       await signIn(email.trim(), password);
-      router.push("/");
+      router.push("/dashboard");
     } catch (err) {
       setError(signInMessage(err));
     } finally {
       setBusy(false);
     }
-  };
-
-  const input =
-    "w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100";
+  }
 
   return (
-    <div className="p-6 flex justify-center">
-      <div className="w-full max-w-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-6 space-y-4">
-        <div>
-          <h1 className="text-lg font-bold text-slate-900 dark:text-white">Operator sign-in</h1>
-          {AUTH_EMULATOR_HOST && (
-            <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
-              Local Auth emulator ({AUTH_EMULATOR_HOST}). Create a test account with backend/scripts/dev_operator_token.py.
-            </p>
-          )}
-        </div>
-
-        {state.status === "config-error" ? (
-          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
-            Missing configuration: {state.missing.join(", ")}.
-          </p>
-        ) : state.status === "signed-in" ? (
-          <div className="space-y-3 text-sm text-slate-700 dark:text-slate-200">
-            <p>
-              Signed in as <strong>{state.email}</strong> (role: {state.role ?? "none"}).
-            </p>
-            <button type="button" onClick={() => void signOut()} className="text-xs font-semibold underline">
-              Sign out
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={submit} className="space-y-3">
-            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
-              Email
-              <input className={`${input} mt-1`} type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
-            </label>
-            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
-              Password
-              <input
-                className={`${input} mt-1`}
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </label>
-            {error && (
-              <p role="alert" className="text-xs text-red-600 dark:text-red-400">
-                {error}
-              </p>
-            )}
-            <button
-              type="submit"
-              disabled={busy || state.status === "loading"}
-              className="w-full rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 px-3 py-2 text-sm font-semibold text-white"
-            >
-              {busy ? "Signing in…" : "Sign in"}
-            </button>
-          </form>
-        )}
+    <main className="relative min-h-screen bg-slate-50 text-slate-900 transition-colors dark:bg-[#0a111c] dark:text-white">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 left-1/2 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-teal-400/10 blur-3xl" />
       </div>
-    </div>
+
+      <div className="relative mx-auto grid min-h-screen max-w-[1400px] lg:grid-cols-2">
+        <AuthShowcase />
+
+        <section className="flex flex-col px-5 py-6 sm:px-10">
+          <div className="flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-2 text-lg font-bold lg:invisible">
+              <ShieldCheck className="h-5 w-5 text-teal-400" />
+              <span>
+                SpectriX <span className="text-teal-400">Ai</span>
+              </span>
+            </Link>
+            <ThemeToggle />
+          </div>
+
+          <div className="flex flex-1 items-center justify-center py-8">
+            <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white/80 p-8 shadow-2xl shadow-slate-200/60 backdrop-blur-xl dark:border-white/10 dark:bg-[#0f1a2b]/80 dark:shadow-black/40 sm:p-10">
+              <h1 className="text-3xl font-bold tracking-tight">Operator sign in</h1>
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                Use the account your administrator created for you.
+              </p>
+              {AUTH_EMULATOR_HOST && (
+                <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                  Local Auth emulator ({AUTH_EMULATOR_HOST}). Create test accounts with backend/scripts/dev_operator_token.py.
+                </p>
+              )}
+
+              {state.status === "config-error" ? (
+                <p role="alert" className="mt-8 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-500">
+                  The app is missing configuration: {state.missing.join(", ")}. Copy frontend/.env.example to .env.local and restart.
+                </p>
+              ) : state.status === "signed-in" ? (
+                <div className="mt-8 space-y-4 text-sm" data-testid="login-signed-in">
+                  <p>
+                    Signed in as <strong>{state.email}</strong> (role: {state.role ?? "none"}).
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <Link
+                      href="/dashboard"
+                      className="inline-flex items-center gap-2 rounded-xl bg-teal-400 px-4 py-2.5 font-semibold text-slate-900 hover:bg-teal-300"
+                    >
+                      Open dashboard <ArrowRight className="h-4 w-4" />
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => void signOut()}
+                      className="rounded-xl border border-slate-300 px-4 py-2.5 font-semibold dark:border-white/15"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="mt-8 space-y-4" noValidate>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="email"
+                      placeholder="Email address"
+                      aria-label="Email address"
+                      autoComplete="username"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className={input}
+                    />
+                  </div>
+
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type={showPw ? "text" : "password"}
+                      placeholder="Password"
+                      aria-label="Password"
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className={`${input} pr-11`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw((s) => !s)}
+                      aria-label={showPw ? "Hide password" : "Show password"}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-teal-400"
+                    >
+                      {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+
+                  {error && (
+                    <div role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-500">
+                      {error}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={busy || state.status === "loading"}
+                    className="group flex w-full items-center justify-center gap-2 rounded-xl bg-teal-400 py-3.5 text-sm font-semibold text-slate-900 shadow-lg shadow-teal-400/25 transition hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {busy ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-label="Signing in" />
+                    ) : (
+                      <>
+                        Sign in
+                        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+
+              <p className="mt-7 text-center text-sm text-slate-500 dark:text-slate-400">
+                No account? Ask your SpectriX Ai administrator.
+              </p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
   );
 }

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import AppShell from "@/components/AppShell";
+import { AuthProvider } from "@/components/AuthProvider";
 
 export const metadata: Metadata = {
-  title: "SpectriX AI – Surveillance Dashboard",
-  description: "Real-time AI-powered security surveillance by SpectriX",
+  title: "SpectriX Ai – Surveillance Dashboard",
+  description: "AI-assisted surveillance and safety monitoring",
   icons: {
     icon: "/icon.svg",
   },
@@ -17,11 +17,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="h-full antialiased dark" suppressHydrationWarning>
-      <body
-        className="min-h-full bg-[#020617] text-slate-100"
-        suppressHydrationWarning
-      >
-        <AppShell>{children}</AppShell>
+      <body className="min-h-full" suppressHydrationWarning>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );
