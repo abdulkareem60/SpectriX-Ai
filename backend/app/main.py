@@ -11,9 +11,9 @@ from .errors import install_error_handlers
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
-        title="NigahSense API",
+        title="SpectriX Ai API",
         version="0.1.0",
-        description="Incident API for the NigahSense first milestone. Times are UTC; clients display Asia/Karachi (PKT).",
+        description="Incident API for the SpectriX Ai first milestone. Times are UTC; clients display Asia/Karachi (PKT).",
         docs_url=None if settings.app_env == "production" else "/docs",
         redoc_url=None,
     )
