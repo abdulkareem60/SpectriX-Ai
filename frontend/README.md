@@ -55,6 +55,30 @@ Copy-Item .env.example .env.local
 
 These values are built into the page, so restart `npm run dev` after changing them.
 
+### Local emulator sign-in
+
+When `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` is set **and** the page is opened from `localhost`, `127.0.0.1` or `[::1]`:
+- sign-in goes to the Auth emulator instead of real Firebase;
+- the sign-in page shows a small **Local emulator** tag.
+
+On any other host the emulator setting is never used. If it is set there, the app shows a configuration error instead of a sign-in form.
+
+The check runs in the browser because `next build` also reads `.env.local`. A production build made on a developer machine could otherwise carry the emulator setting into a deployment.
+
+**Test accounts:**
+- `backend/scripts/dev_operator_token.py` creates an account in the emulator and sets its `role` claim.
+- The password for every account it creates is the `PASSWORD` constant in that script.
+- Roles allowed into the console: `operator`, `supervisor`, `admin` (the backend's `OPERATOR_ROLES`). Any other role, such as `viewer`, can sign in but is refused incident data (403).
+
+Emulator accounts are lost when the emulator stops. Run the script again after each restart.
+
+### Real Firebase (deployment)
+
+1. Set `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` and `NEXT_PUBLIC_FIREBASE_PROJECT_ID` from the Firebase console (Project settings → Your apps → Web app).
+2. Leave `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` **empty**.
+3. Build where no `.env.local` is present, or set these variables in the build environment.
+4. An administrator creates each account and sets its `role` custom claim with the Firebase Admin SDK. There is no self-service sign-up.
+
 ## Run against the local backend
 
 1. From the repository root, start the emulators:
@@ -65,9 +89,10 @@ These values are built into the page, so restart `npm run dev` after changing th
    ```powershell
    .venv\Scripts\python -m uvicorn app.main:app --port 8000
    ```
-3. From `backend/`, create an operator account in the Auth emulator. The script prints a token you don't need; the account's password is the `PASSWORD` constant in the script:
+3. From `backend/`, create test accounts in the Auth emulator (see [Local emulator sign-in](#local-emulator-sign-in)). The script also prints a token you don't need:
    ```powershell
    .venv\Scripts\python scripts\dev_operator_token.py --email operator@nigahsense.test --role operator
+   .venv\Scripts\python scripts\dev_operator_token.py --email viewer@nigahsense.test --role viewer
    ```
 4. Optional, for a test incident: from `backend/`, send a sample event with your local worker key:
    ```powershell

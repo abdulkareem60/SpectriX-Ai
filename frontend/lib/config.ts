@@ -11,14 +11,38 @@ export const firebaseConfig = {
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "",
 };
 
-/** host:port of the Firebase Auth emulator, e.g. 127.0.0.1:9099. Empty in real deployments. */
-export const AUTH_EMULATOR_HOST = (process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST ?? "").trim();
+/**
+ * host:port of the Firebase Auth emulator, e.g. 127.0.0.1:9099, as configured at build time.
+ * Must be empty in real deployments. Use authEmulatorHost() rather than reading this directly.
+ */
+const CONFIGURED_AUTH_EMULATOR_HOST = (process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST ?? "").trim();
 
-/** Names of required settings that are missing, for a clear on-screen message. */
-export function missingConfig(): string[] {
-  const missing: string[] = [];
-  if (!API_BASE_URL) missing.push("NEXT_PUBLIC_API_BASE_URL");
-  if (!firebaseConfig.apiKey) missing.push("NEXT_PUBLIC_FIREBASE_API_KEY");
-  if (!firebaseConfig.projectId) missing.push("NEXT_PUBLIC_FIREBASE_PROJECT_ID");
-  return missing;
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+
+function servedFromThisMachine(): boolean {
+  return typeof window !== "undefined" && LOCAL_HOSTNAMES.has(window.location.hostname);
+}
+
+/**
+ * The Auth emulator to use, or "" for real Firebase. Browser only.
+ * `next build` also reads .env.local, so a production build can accidentally carry the emulator
+ * setting. It is therefore honoured only when the page itself is opened from localhost.
+ */
+export function authEmulatorHost(): string {
+  return CONFIGURED_AUTH_EMULATOR_HOST && servedFromThisMachine() ? CONFIGURED_AUTH_EMULATOR_HOST : "";
+}
+
+/** Configuration problems to show instead of a sign-in form. Browser only; empty when all is well. */
+export function configProblems(): string[] {
+  const problems: string[] = [];
+  if (!API_BASE_URL) problems.push("NEXT_PUBLIC_API_BASE_URL is not set.");
+  if (!firebaseConfig.apiKey) problems.push("NEXT_PUBLIC_FIREBASE_API_KEY is not set.");
+  if (!firebaseConfig.projectId) problems.push("NEXT_PUBLIC_FIREBASE_PROJECT_ID is not set.");
+  if (CONFIGURED_AUTH_EMULATOR_HOST && !servedFromThisMachine()) {
+    problems.push(
+      "This build is set to use the local Auth emulator but is not running on localhost. " +
+        "Leave NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST empty and rebuild.",
+    );
+  }
+  return problems;
 }

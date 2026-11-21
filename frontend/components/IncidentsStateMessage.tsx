@@ -25,7 +25,7 @@ export default function IncidentsStateMessage({ state, onRetry }: Props) {
       <Panel
         icon={<AlertCircle size={20} className="text-red-500" />}
         title="The dashboard is not configured"
-        body={`Missing: ${state.missing.join(", ")}. Copy frontend/.env.example to .env.local and restart the dev server.`}
+        body={`${state.problems.join(" ")} See frontend/README.md.`}
         testId="incidents-config-error"
       />
     );

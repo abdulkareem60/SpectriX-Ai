@@ -11,19 +11,18 @@ import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from "lucid
 import AuthShowcase from "@/components/AuthShowcase";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useAuth } from "@/components/AuthProvider";
-import { AUTH_EMULATOR_HOST } from "@/lib/config";
 
 const input =
   "w-full rounded-xl border border-slate-200 bg-white/70 py-3 pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-400/15 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-500";
 
-function signInMessage(err: unknown): string {
+function signInMessage(err: unknown, emulatorHost: string): string {
   if (err instanceof FirebaseError) {
     if (["auth/invalid-credential", "auth/wrong-password", "auth/user-not-found", "auth/invalid-email"].includes(err.code)) {
       return "Email or password is incorrect.";
     }
     if (err.code === "auth/network-request-failed") {
-      return AUTH_EMULATOR_HOST
-        ? `Cannot reach the Auth emulator at ${AUTH_EMULATOR_HOST}. Is it running?`
+      return emulatorHost
+        ? `Cannot reach the local Auth emulator at ${emulatorHost}. Is it running?`
         : "Cannot reach the sign-in service. Check your connection.";
     }
     if (err.code === "auth/too-many-requests") return "Too many attempts. Wait a moment and try again.";
@@ -34,7 +33,7 @@ function signInMessage(err: unknown): string {
 }
 
 export default function LoginPage() {
-  const { state, signIn, signOut } = useAuth();
+  const { state, emulatorHost, signIn, signOut } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -53,7 +52,7 @@ export default function LoginPage() {
       await signIn(email.trim(), password);
       router.push("/dashboard");
     } catch (err) {
-      setError(signInMessage(err));
+      setError(signInMessage(err, emulatorHost));
     } finally {
       setBusy(false);
     }
@@ -81,19 +80,26 @@ export default function LoginPage() {
 
           <div className="flex flex-1 items-center justify-center py-8">
             <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white/80 p-8 shadow-2xl shadow-slate-200/60 backdrop-blur-xl dark:border-white/10 dark:bg-[#0f1a2b]/80 dark:shadow-black/40 sm:p-10">
-              <h1 className="text-3xl font-bold tracking-tight">Operator sign in</h1>
+              <div className="flex items-start justify-between gap-3">
+                <h1 className="text-3xl font-bold tracking-tight">Operator sign in</h1>
+                {/* Only on localhost with the emulator configured; setup steps are in frontend/README.md. */}
+                {emulatorHost && (
+                  <span
+                    data-testid="emulator-badge"
+                    title="Signing in against the local Firebase Auth emulator"
+                    className="mt-1.5 shrink-0 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300"
+                  >
+                    Local emulator
+                  </span>
+                )}
+              </div>
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                 Use the account your administrator created for you.
               </p>
-              {AUTH_EMULATOR_HOST && (
-                <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-                  Local Auth emulator ({AUTH_EMULATOR_HOST}). Create test accounts with backend/scripts/dev_operator_token.py.
-                </p>
-              )}
 
               {state.status === "config-error" ? (
                 <p role="alert" className="mt-8 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-500">
-                  The app is missing configuration: {state.missing.join(", ")}. Copy frontend/.env.example to .env.local and restart.
+                  Sign-in is not available: {state.problems.join(" ")}
                 </p>
               ) : state.status === "signed-in" ? (
                 <div className="mt-8 space-y-4 text-sm" data-testid="login-signed-in">

@@ -7,7 +7,7 @@ import { ApiError, listIncidents } from "./api";
 
 export type IncidentsState =
   | { phase: "loading" }
-  | { phase: "config-error"; missing: string[] }
+  | { phase: "config-error"; problems: string[] }
   | { phase: "signed-out" }
   | { phase: "error"; error: ApiError }
   | { phase: "ready"; items: Incident[]; nextCursor: string | null; loadedAt: Date };
@@ -82,7 +82,7 @@ export function useIncidents({ limit, status, refreshMs = 0 }: Options) {
   // Auth decides the phase until a signed-in request has been made.
   let view: IncidentsState = state;
   if (auth.status === "loading") view = { phase: "loading" };
-  else if (auth.status === "config-error") view = { phase: "config-error", missing: auth.missing };
+  else if (auth.status === "config-error") view = { phase: "config-error", problems: auth.problems };
   else if (auth.status === "signed-out") view = { phase: "signed-out" };
 
   return { state: view, reload: () => load(true), loadMore, loadingMore };

@@ -1,16 +1,20 @@
 import { getApps, initializeApp } from "firebase/app";
 import { connectAuthEmulator, getAuth, type Auth } from "firebase/auth";
-import { AUTH_EMULATOR_HOST, firebaseConfig } from "./config";
+import { authEmulatorHost, firebaseConfig } from "./config";
 
 let auth: Auth | null = null;
 
-/** Firebase Auth for the browser. Connects to the Auth emulator when NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST is set. */
+/**
+ * Firebase Auth for the browser. Uses the Auth emulator only when one is configured AND the page
+ * is served from localhost (see authEmulatorHost); otherwise real Firebase.
+ */
 export function getFirebaseAuth(): Auth {
   if (auth) return auth;
   const app = getApps()[0] ?? initializeApp(firebaseConfig);
   auth = getAuth(app);
-  if (AUTH_EMULATOR_HOST) {
-    connectAuthEmulator(auth, `http://${AUTH_EMULATOR_HOST}`, { disableWarnings: true });
+  const emulator = authEmulatorHost();
+  if (emulator) {
+    connectAuthEmulator(auth, `http://${emulator}`, { disableWarnings: true });
   }
   return auth;
 }
