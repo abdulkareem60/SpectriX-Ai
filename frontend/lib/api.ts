@@ -1,130 +1,115 @@
-import type { Incident } from "@/types/incident";
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-
-export interface BackendHealth {
-  status: "connected" | "disconnected" | "checking";
-  message?: string;
-}
+import type { ApiErrorBody, IncidentList, IncidentStatus } from "@/types/incident";
+import { API_BASE_URL } from "./config";
 
 /**
- * Check backend service health (GET /health)
+ * Why a request failed. The UI shows a different message for each, and never treats a failure as success.
+ * - config: NEXT_PUBLIC_API_BASE_URL is not set
+ * - network: the API could not be reached (stopped, wrong URL, or blocked by CORS)
+ * - unauthenticated: 401, the user must sign in (again)
+ * - forbidden: 403, signed in but the account's role is not allowed
+ * - server: any other error status from the API
+ * - bad_response: the API answered 2xx with something that is not the expected shape
  */
-export async function checkBackendHealth(): Promise<{ ok: boolean; message: string }> {
+export type ApiErrorKind = "config" | "network" | "unauthenticated" | "forbidden" | "server" | "bad_response";
+
+export class ApiError extends Error {
+  constructor(
+    public readonly kind: ApiErrorKind,
+    message: string,
+    public readonly status?: number,
+    public readonly code?: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+function isErrorBody(value: unknown): value is ApiErrorBody {
+  const err = (value as ApiErrorBody | null)?.error;
+  return typeof err?.code === "string" && typeof err?.message === "string";
+}
+
+async function request(path: string, init: { token?: string; signal?: AbortSignal } = {}): Promise<unknown> {
+  if (!API_BASE_URL) {
+    throw new ApiError("config", "The API address is not configured. Set NEXT_PUBLIC_API_BASE_URL in frontend/.env.local.");
+  }
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (init.token) headers.Authorization = `Bearer ${init.token}`;
+
+  let res: Response;
   try {
-    const res = await fetch(`${API_BASE_URL}/health`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      return { ok: false, message: `HTTP ${res.status}` };
-    }
-    const data = await res.json().catch(() => ({}));
-    return { ok: true, message: data.status || "OK" };
+    res = await fetch(`${API_BASE_URL}${path}`, { headers, cache: "no-store", signal: init.signal });
   } catch (err) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Disconnected",
-    };
-  }
-}
-
-/**
- * Fetch incident records from backend (GET /v1/incidents)
- */
-export async function fetchIncidents(
-  token?: string,
-  params?: { status?: string; camera_id?: string; limit?: number }
-): Promise<Incident[]> {
-  const url = new URL(`${API_BASE_URL}/v1/incidents`);
-  if (params?.status) url.searchParams.set("status", params.status);
-  if (params?.camera_id) url.searchParams.set("camera_id", params.camera_id);
-  if (params?.limit) url.searchParams.set("limit", String(params.limit));
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    throw new ApiError(
+      "network",
+      `Cannot reach the API at ${API_BASE_URL}. Check that it is running and that CORS_ORIGINS allows this site.`,
+    );
   }
 
-  const res = await fetch(url.toString(), {
-    method: "GET",
-    headers,
-    cache: "no-store",
-  });
-
+  const body: unknown = await res.json().catch(() => undefined);
   if (!res.ok) {
-    throw new Error(`Failed to fetch incidents: ${res.statusText}`);
+    const code = isErrorBody(body) ? body.error.code : undefined;
+    const message = isErrorBody(body) ? body.error.message : `The API returned HTTP ${res.status}.`;
+    if (res.status === 401) throw new ApiError("unauthenticated", message, 401, code);
+    if (res.status === 403) throw new ApiError("forbidden", message, 403, code);
+    throw new ApiError("server", message, res.status, code);
   }
-
-  return (await res.json()) as Incident[];
+  if (body === undefined) throw new ApiError("bad_response", "The API returned a response that is not JSON.", res.status);
+  return body;
 }
 
-/**
- * Stub slot for saving drawn restricted zones for a camera
- */
-export async function saveCameraZone(
-  cameraId: string,
-  zoneData: unknown,
-  token?: string
-): Promise<{ success: boolean; message?: string }> {
+export type HealthResult = { ok: true } | { ok: false; error: ApiError };
+
+/** GET /health (no sign-in). ok only when the API answers 200 and its storage check passes. */
+export async function checkHealth(signal?: AbortSignal): Promise<HealthResult> {
   try {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-
-    const res = await fetch(
-      `${API_BASE_URL}/v1/cameras/${encodeURIComponent(cameraId)}/zones`,
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify(zoneData),
-      }
-    );
-
-    if (!res.ok) {
-      return {
-        success: false,
-        message: `Backend slot ready (${res.status} ${res.statusText})`,
-      };
-    }
-
-    return { success: true, message: "Zone saved successfully" };
-  } catch {
-    // Clean slot feedback when backend endpoint is not yet connected
-    return {
-      success: true,
-      message: "Zone slot ready (backend integration point)",
-    };
+    const body = (await request("/health", { signal })) as { status?: unknown } | null;
+    if (body?.status !== "ok") return { ok: false, error: new ApiError("bad_response", "Unexpected health response.") };
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof ApiError) return { ok: false, error: err };
+    throw err;
   }
 }
 
-/**
- * Formats a UTC timestamp string into Asia/Karachi (PKT) time
- */
+export interface IncidentQuery {
+  status?: IncidentStatus;
+  camera_id?: string;
+  limit?: number; // 1–100, API default 25
+  cursor?: string | null;
+}
+
+/** GET /v1/incidents (operator ID token required). Newest first, paged with next_cursor. */
+export async function listIncidents(token: string, query: IncidentQuery = {}, signal?: AbortSignal): Promise<IncidentList> {
+  const params = new URLSearchParams();
+  if (query.status) params.set("status", query.status);
+  if (query.camera_id) params.set("camera_id", query.camera_id);
+  if (query.limit) params.set("limit", String(query.limit));
+  if (query.cursor) params.set("cursor", query.cursor);
+  const qs = params.toString();
+
+  const body = (await request(`/v1/incidents${qs ? `?${qs}` : ""}`, { token, signal })) as Partial<IncidentList> | null;
+  if (!body || !Array.isArray(body.items)) {
+    throw new ApiError("bad_response", "The incident list from the API is not in the expected {items, next_cursor} shape.");
+  }
+  return { items: body.items, next_cursor: typeof body.next_cursor === "string" ? body.next_cursor : null };
+}
+
+/** Formats a UTC timestamp in Asia/Karachi (PKT). */
 export function formatPKT(utcString: string): string {
-  try {
-    const date = new Date(utcString);
-    if (isNaN(date.getTime())) return "Invalid date";
-    return (
-      date.toLocaleString("en-PK", {
-        timeZone: "Asia/Karachi",
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      }) + " PKT"
-    );
-  } catch {
-    return utcString;
-  }
+  const date = new Date(utcString);
+  if (isNaN(date.getTime())) return "Invalid date";
+  return (
+    date.toLocaleString("en-PK", {
+      timeZone: "Asia/Karachi",
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }) + " PKT"
+  );
 }

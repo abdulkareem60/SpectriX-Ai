@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Monitor, AlertTriangle, Settings, LogOut, Eye } from "lucide-react";
+import { useAuth } from "./AuthProvider";
 
 const navItems = [
   { label: "Live Monitoring", href: "/", icon: Monitor },
@@ -12,12 +13,12 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { state, signOut } = useAuth();
 
-  const handleLogout = () => {
-    // Logout slot — ready for Firebase Auth signout
-    if (typeof window !== "undefined") {
-      window.location.reload();
-    }
+  const handleLogout = async () => {
+    await signOut();
+    router.push("/login");
   };
 
   return (
@@ -74,10 +75,10 @@ export default function Sidebar() {
       </nav>
 
       {/* Logout */}
-      <div className="px-3 py-4 border-t border-slate-800">
+      <div className={`px-3 py-4 border-t border-slate-800 ${state.status === "signed-in" ? "" : "invisible"}`}>
         <button
           type="button"
-          onClick={handleLogout}
+          onClick={() => void handleLogout()}
           className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium
                      text-slate-400 hover:text-red-400 hover:bg-red-900/20
                      border border-transparent transition-all duration-150"

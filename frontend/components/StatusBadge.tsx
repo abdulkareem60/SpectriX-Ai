@@ -1,19 +1,19 @@
-export type StatusType = "ACTIVE" | "OFFLINE" | "BREACH" | "PERSON DETECTED";
+export type StatusType = "NEW" | "ACKNOWLEDGED" | "SAMPLE" | "UNKNOWN";
 
 interface StatusBadgeProps {
   status: StatusType | string;
 }
 
 const statusStyles: Record<string, string> = {
-  ACTIVE: "bg-green-500/15 text-green-400 border border-green-500/40",
-  OFFLINE: "bg-slate-600/20 text-slate-400 border border-slate-600/40",
-  BREACH: "bg-red-500/15 text-red-400 border border-red-500/40 animate-pulse",
-  "PERSON DETECTED": "bg-red-500/15 text-red-400 border border-red-500/40 animate-pulse",
+  NEW: "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/40",
+  ACKNOWLEDGED: "bg-slate-500/15 text-slate-600 dark:text-slate-300 border border-slate-500/40",
+  SAMPLE: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/40",
+  UNKNOWN: "bg-slate-600/20 text-slate-500 dark:text-slate-400 border border-slate-600/40",
 };
 
 export default function StatusBadge({ status }: StatusBadgeProps) {
-  const classes =
-    statusStyles[status] ?? "bg-slate-600/20 text-slate-400 border border-slate-600/40";
+  const key = status.toUpperCase();
+  const classes = statusStyles[key] ?? statusStyles.UNKNOWN;
 
   return (
     <span
