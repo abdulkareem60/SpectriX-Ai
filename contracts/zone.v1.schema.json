@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abdulkareem60/nigahsense/contracts/zone.v1.schema.json",
+  "title": "SpectriX Ai zone v1",
+  "description": "One restricted zone drawn on a still frame captured by the vision worker from the same stream it analyses. Coordinates are fractions of the full analysis frame: origin at the top-left corner, x increases to the right, y increases downwards, both from 0 to 1. The polygon closes automatically (the last point connects back to the first; do not repeat the first point). Some rules cannot be expressed in JSON Schema and are enforced by the API model (backend/app/schemas/zones.py): finite numbers, no near-duplicate vertices, no crossing or touching edges, and a minimum area.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "camera_id", "zone_id", "name", "kind", "enabled", "version", "points", "reference_frame"],
+  "x-nigahsense-polygon-rules": {
+    "min_points": 3,
+    "max_points": 32,
+    "min_area_fraction": 0.001,
+    "duplicate_tolerance": 1e-06,
+    "enforced_by": "backend/app/schemas/zones.py"
+  },
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "description": "Contract version. Breaking changes publish zone.v2 instead of editing this file."
+    },
+    "camera_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+      "description": "Camera or recorded-video source the zone belongs to. Same identifier rule as the vision event contract."
+    },
+    "zone_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+      "description": "Unique per camera and never changed once created; incidents refer to it. Rename with `name`, not by changing the id."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "\\S",
+      "description": "Label shown to operators."
+    },
+    "kind": {
+      "enum": ["restricted"],
+      "description": "Zone type. Only restricted areas exist in v1."
+    },
+    "enabled": {
+      "type": "boolean",
+      "description": "Disabled zones are kept (so old incidents still resolve) but never alert. Deleting a zone means disabling it."
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Starts at 1 and increases by 1 on every saved change to the zone."
+    },
+    "points": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "description": "Polygon corners in drawing order (clockwise or anticlockwise). Objects rather than [x, y] pairs so the list can be stored directly in Firestore, which does not allow arrays inside arrays.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["x", "y"],
+        "properties": {
+          "x": { "type": "number", "minimum": 0, "maximum": 1, "description": "0 = left edge, 1 = right edge of the analysis frame" },
+          "y": { "type": "number", "minimum": 0, "maximum": 1, "description": "0 = top edge, 1 = bottom edge of the analysis frame" }
+        }
+      }
+    },
+    "reference_frame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "captured_at"],
+      "description": "The still frame the zone was drawn on. Its size must equal the frame size the worker analyses; a mismatch means the zone needs review.",
+      "properties": {
+        "width": { "type": "integer", "minimum": 1, "maximum": 16384, "description": "Pixels" },
+        "height": { "type": "integer", "minimum": 1, "maximum": 16384, "description": "Pixels" },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+          "description": "RFC 3339 with a UTC offset (e.g. Z or +05:00). The pattern enforces the offset even in validators that ignore `format`."
+        }
+      }
+    }
+  }
+}

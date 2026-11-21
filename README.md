@@ -1,11 +1,22 @@
-# NigahSense
+# SpectriX Ai
 
-**Intelligent Surveillance & Safety** — an AI-assisted surveillance and safety monitoring web application. See [docs/project-brief.md](docs/project-brief.md) for scope and team ownership, and [docs/branch-workflow.md](docs/branch-workflow.md) for the branch and PR process.
+**Intelligent Surveillance & Safety** — an AI-assisted surveillance and safety monitoring web application.
+
+> **Name change.** The project was called NigahSense. Its display name is now **SpectriX Ai**. Some technical identifiers still use the old name until a planned migration: the repository URL, the `nigah_worker` package, `NIGAHSENSE_*` environment variables, the `demo-nigahsense` Firebase project ID and the `x-nigahsense-polygon-rules` schema key. Keep using them exactly as written for now.
+
+| Document | Purpose |
+|---|---|
+| [Project brief](docs/project-brief.md) | Scope, technology choices, team roles |
+| [Requirements](docs/requirements.md) | The 12 features: behaviour, acceptance criteria, current status |
+| [Architecture](docs/architecture.md) | Components, data flow, contracts, auth, failure handling |
+| [Accuracy evaluation](docs/accuracy-evaluation.md) | How detection and alert accuracy is labelled, measured and recorded |
+| [Contributing](CONTRIBUTING.md) | Team branches, PR and review workflow, definition of done |
 
 | Path | Contents |
 |---|---|
 | [`contracts/`](contracts/) | Shared event and incident contracts (worker ↔ API ↔ frontend) |
 | [`backend/`](backend/) | FastAPI incident API (Python 3.14) |
+| [`worker/`](worker/) | Vision worker: video → person tracking → restricted-zone events → API. Setup and the full local flow are in [`worker/README.md`](worker/README.md) |
 | `firebase.json`, `firestore.rules`, `firestore.indexes.json` | Firebase Emulator Suite and Firestore configuration |
 
 ## Backend: first milestone API

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/abdulkareem60/nigahsense/contracts/vision-event.v1.schema.json",
-  "title": "NigahSense vision event v1",
+  "title": "SpectriX Ai vision event v1",
   "description": "One structured detection event sent by the vision worker to POST /v1/events. Contains metadata and an optional evidence reference only, never image or video bytes.",
   "type": "object",
   "additionalProperties": false,
