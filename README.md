@@ -120,6 +120,8 @@ All errors use `{"error": {"code", "message", "details?"}}`. Timestamps are UTC;
 | `PUT /v1/cameras/{camera_id}/zones/{zone_id}` | Zone editor (supervisor, admin) | Body: a zone v1. Version 1 creates (`201`), the next version updates (`200`), any other version gives `409 version_conflict`. Every version is kept |
 | `GET /v1/cameras/{camera_id}/zones/{zone_id}` | Operator | The current zone, or `404 zone_not_found` |
 | `GET /v1/worker/cameras/{camera_id}/zones` | Vision worker (`X-Worker-Key`) | Every current zone on the camera (the worker uses the enabled ones); empty list if none |
+| `PUT /v1/worker/cameras/{camera_id}/preview` | Vision worker (`X-Worker-Key`) | Raw `image/jpeg` body (≤ 512 KB) with optional `X-Captured-At`. Replaces the camera's latest preview frame, kept in memory only. `204` |
+| `GET /v1/cameras/{camera_id}/preview` | Operator | The latest preview JPEG, with `X-Preview-Age-Seconds` (by the API's clock) and `X-Captured-At`. `404 preview_not_available` before the first frame |
 
 **Operator** means a Firebase ID token (`Authorization: Bearer <token>`) whose custom claim `role` is in `OPERATOR_ROLES`. Without a token the API returns 401; with the wrong role, 403.
 

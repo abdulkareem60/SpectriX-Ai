@@ -9,6 +9,7 @@ from .config import Settings, get_settings
 from .repositories.base import IncidentRepository, ZoneRepository
 from .repositories.memory import MemoryIncidentRepository, MemoryZoneRepository
 from .services.incidents import IncidentService
+from .services.previews import PreviewStore
 from .services.zones import ZoneService
 
 
@@ -47,3 +48,11 @@ def get_zone_repository(settings: Annotated[Settings, Depends(get_settings)]) ->
 
 def get_zone_service(repo: Annotated[ZoneRepository, Depends(get_zone_repository)]) -> ZoneService:
     return ZoneService(repo)
+
+
+_preview_store = PreviewStore()
+
+
+def get_preview_store() -> PreviewStore:
+    """One in-memory store per API process (see services/previews.py). Tests override this."""
+    return _preview_store

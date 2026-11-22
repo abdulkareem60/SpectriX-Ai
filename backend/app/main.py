@@ -22,6 +22,8 @@ def create_app() -> FastAPI:
         allow_origins=settings.cors_origin_list(),
         allow_methods=["GET", "POST", "PUT"],
         allow_headers=["Authorization", "Content-Type"],
+        # Let the dashboard read the camera preview's freshness headers.
+        expose_headers=["X-Preview-Age-Seconds", "X-Captured-At", "X-Camera-Id"],
     )
     install_error_handlers(app)
     app.include_router(health_router)

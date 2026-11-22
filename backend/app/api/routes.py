@@ -1,19 +1,21 @@
 """HTTP routes. Thin: validate input, check access, call the service."""
 
+from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Path, Query, Response
+from fastapi import APIRouter, Body, Depends, Header, Path, Query, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import AwareDatetime
 
-from ..dependencies import get_incident_service, get_repository, get_zone_service
-from ..errors import error_body
+from ..dependencies import get_incident_service, get_preview_store, get_repository, get_zone_service
+from ..errors import ApiError, error_body
 from ..repositories.base import IncidentRepository
 from ..schemas.events import EventType, IngestResult, VisionEventV1
 from ..schemas.incidents import AcknowledgeRequest, Incident, IncidentFilters, IncidentList, IncidentStatus
 from ..schemas.zones import WorkerZoneList, ZoneV1
 from ..security import Principal, require_operator, require_worker, require_zone_editor
 from ..services.incidents import IncidentService
+from ..services.previews import PreviewStore
 from ..services.zones import ZoneService
 
 Service = Annotated[IncidentService, Depends(get_incident_service)]
@@ -98,3 +100,53 @@ def get_zone(camera_id: CameraId, zone_id: ZoneId, _: Operator, service: ZoneSvc
 def worker_zones(camera_id: CameraId, service: ZoneSvc) -> WorkerZoneList:
     """Current zones for the worker's camera (worker key only). An unknown camera has no zones (empty list)."""
     return WorkerZoneList(camera_id=camera_id, zones=service.list_for_worker(camera_id))
+
+
+# ---------------------------------------------------------------- camera preview
+Previews = Annotated[PreviewStore, Depends(get_preview_store)]
+
+
+@v1.put("/worker/cameras/{camera_id}/preview", tags=["worker"], status_code=204, dependencies=[Depends(require_worker)],
+        responses={413: {"description": "Image too large"}, 415: {"description": "Not image/jpeg"},
+                   422: {"description": "Not a complete JPEG"}})
+async def put_preview(
+    camera_id: CameraId,
+    request: Request,
+    store: Previews,
+    content_type: Annotated[str, Header()] = "",
+    x_captured_at: Annotated[str | None, Header()] = None,
+) -> Response:
+    """Latest preview frame from the worker (worker key only): a raw `image/jpeg` body. Only the newest frame is kept,
+    in memory. `X-Captured-At` (RFC 3339) is when the worker read the frame."""
+    if content_type.split(";")[0].strip().lower() != "image/jpeg":
+        raise ApiError(415, "unsupported_media_type", "Send the preview as a raw body with Content-Type: image/jpeg.")
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > store.max_bytes:
+        raise ApiError(413, "preview_too_large", f"Preview images must be at most {store.max_bytes} bytes.")
+    captured_at = None
+    if x_captured_at:
+        try:
+            captured_at = datetime.fromisoformat(x_captured_at.replace("Z", "+00:00"))
+        except ValueError:
+            raise ApiError(422, "invalid_captured_at", "X-Captured-At must be an RFC 3339 timestamp.") from None
+        if captured_at.tzinfo is None:
+            raise ApiError(422, "invalid_captured_at", "X-Captured-At must include a timezone offset.")
+    store.put(camera_id, await request.body(), captured_at)
+    return Response(status_code=204)
+
+
+@v1.get("/cameras/{camera_id}/preview", tags=["cameras"], response_class=Response,
+        responses={200: {"content": {"image/jpeg": {}}, "description": "Latest preview frame"},
+                   404: {"description": "No preview received yet (preview_not_available)"}})
+def get_preview(camera_id: CameraId, _: Operator, store: Previews) -> Response:
+    """Latest preview frame for a camera (operators only). `X-Preview-Age-Seconds` is how long ago the API received it,
+    by the API's clock, so clients can mark the preview stale without trusting their own clock."""
+    preview = store.get(camera_id)
+    headers = {
+        "Cache-Control": "no-store",
+        "X-Preview-Age-Seconds": f"{preview.age_seconds():.1f}",
+        "X-Camera-Id": camera_id,
+    }
+    if preview.captured_at is not None:
+        headers["X-Captured-At"] = preview.captured_at.isoformat()
+    return Response(content=preview.image, media_type="image/jpeg", headers=headers)
