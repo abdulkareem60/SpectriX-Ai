@@ -5,6 +5,8 @@
 [camera]
 id = "cam-demo-plaza"            # lowercase letters, digits, - or _ (max 64). Must match the camera ID agreed with the API/frontend.
 name = "Demo plaza (OpenCV sample video)"
+# zones_source = "api"         # take zones from the API instead of [[zones]] below; saved changes apply without a restart
+# zone_poll_seconds = 10       # how often the worker checks the API for changed zones (api mode)
 
 [source]
 type = "file"                    # "file" (recorded video), "webcam" (local camera) or "rtsp" (network camera)

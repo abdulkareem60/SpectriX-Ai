@@ -24,6 +24,10 @@ class _Strict(BaseModel):
 class CameraConfig(_Strict):
     id: IdStr
     name: str = ""
+    # "file": zones come from [[zones]] in this file (default). "api": zones come from the API
+    # (GET /v1/worker/cameras/{id}/zones) and changes saved there apply without a restart.
+    zones_source: Literal["file", "api"] = "file"
+    zone_poll_seconds: float = Field(default=10.0, ge=1.0, le=3600.0)
 
 
 class SourceConfig(_Strict):
@@ -78,6 +82,7 @@ class RuleConfig(_Strict):
 class OutputConfig(_Strict):
     event_log: str | None = "runtime/events.jsonl"
     outbox: str = "runtime/outbox.jsonl"
+    zones_cache: str = "runtime/zones-cache.json"  # last zones received from the API (zones_source = "api")
     annotated_video: str | None = None
     show_window: bool = False
 
@@ -86,7 +91,7 @@ class WorkerConfig(_Strict):
     camera: CameraConfig
     source: SourceConfig
     detector: DetectorConfig = DetectorConfig()
-    zones: list[ZoneConfig] = Field(min_length=1)
+    zones: list[ZoneConfig] = Field(default_factory=list)
     rule: RuleConfig = RuleConfig()
     output: OutputConfig = OutputConfig()
 
@@ -97,6 +102,12 @@ class WorkerConfig(_Strict):
         if len(ids) != len(set(ids)):
             raise ValueError("zone ids must be unique per camera")
         return zones
+
+    @model_validator(mode="after")
+    def _zones_for_file_mode(self) -> "WorkerConfig":
+        if self.camera.zones_source == "file" and not self.zones:
+            raise ValueError("add at least one [[zones]] block, or set [camera] zones_source = \"api\"")
+        return self
 
 
 class WorkerEnv(BaseSettings):

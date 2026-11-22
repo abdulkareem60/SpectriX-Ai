@@ -14,6 +14,7 @@ from .detection import PersonTracker
 from .events import build_event
 from .rules import RestrictedZoneRule
 from .sources import Frame
+from .zones import Zone
 
 log = logging.getLogger("nigah_worker.pipeline")
 
@@ -57,6 +58,8 @@ def run_pipeline(
     show_window: bool = False,
     fps_hint: Callable[[], float] = lambda: 10.0,
     max_frames: int | None = None,
+    zone_update: Callable[[], list[Zone] | None] | None = None,
+    frame_check: Callable[[int, int], None] | None = None,
 ) -> RunStats:
     stats = RunStats()
     sink: VideoSink | None = None
@@ -73,6 +76,12 @@ def run_pipeline(
             if frame.index % frame_stride:
                 continue
             h, w = frame.image.shape[:2]
+            if zone_update is not None:  # zones saved through the API apply between two frames, no restart
+                new_zones = zone_update()
+                if new_zones is not None:
+                    rule.set_zones(new_zones)
+            if frame_check is not None:
+                frame_check(w, h)
             people = tracker.update(frame.image)
             stats.frames_processed += 1
             stats.max_people = max(stats.max_people, len(people))

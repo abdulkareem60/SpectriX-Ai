@@ -91,6 +91,27 @@ points = [[0.00, 0.50], [0.42, 0.63], [0.56, 1.00], [0.00, 1.00]]
 - A person is inside when the **bottom centre of their box** (their feet) is inside the polygon. Use `anchor = "center"` for top-down cameras.
 - To find coordinates: take a pixel position from a frame and divide by the frame width and height. For example, (336, 363) on a 768×576 frame → [0.44, 0.63].
 
+### Zones from the API
+
+Set `zones_source = "api"` under `[camera]` and the worker takes its zones from the zone API instead of `[[zones]]` (which it then ignores):
+
+```toml
+[camera]
+id = "cam-demo-plaza"
+zones_source = "api"
+zone_poll_seconds = 10
+```
+
+- **At start**, the worker fetches `GET /v1/worker/cameras/{camera_id}/zones` using `NIGAHSENSE_WORKER_KEY`, and uses the **enabled** zones.
+- **While running**, it checks every `zone_poll_seconds`. When a zone's version or enabled flag changes, it switches between two frames, with no restart:
+  - a zone whose shape is unchanged keeps its state, so nobody is alerted twice;
+  - in a changed zone, people already inside count as new entries and alert after `confirm_frames`.
+- **If the API is down at start**, it uses the last zones it received (`[output] zones_cache`, default `runtime/zones-cache.json`). With no API and no saved copy it **stops with a clear error**; it never runs silently without zones. If a later check fails, it keeps its current zones.
+- **No enabled zones** is allowed (for example, every zone disabled), but logged as a warning: nothing will alert.
+- **Frame-size check:** a warning appears if the analysed frame size differs from the frame a zone was drawn on (`reference_frame`). A different shape usually means the zone is misaligned.
+
+Save zones with `PUT /v1/cameras/{camera_id}/zones/{zone_id}` (supervisor or admin; see [contracts/README.md](../contracts/README.md#zone-endpoints)). The event payload is unchanged; recording the zone version on incidents is a planned contract change.
+
 ## Alert rule (`[rule]`)
 
 | Setting | Default | Meaning |
