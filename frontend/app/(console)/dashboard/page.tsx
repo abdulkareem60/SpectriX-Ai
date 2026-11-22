@@ -3,13 +3,16 @@
 import Link from "next/link";
 import { AlertTriangle, Bell, Camera } from "lucide-react";
 import CameraCard, { CameraInfo } from "@/components/CameraCard";
+import CameraPreviewCard from "@/components/CameraPreviewCard";
 import IncidentsStateMessage from "@/components/IncidentsStateMessage";
 import { IncidentStatusBadge } from "@/components/IncidentBadges";
 import StatusBadge from "@/components/StatusBadge";
 import { formatPKT } from "@/lib/api";
+import { PREVIEW_CAMERA_ID } from "@/lib/config";
 import { useIncidents } from "@/lib/useIncidents";
 
-// SAMPLE layout only: the API has no camera list or camera status yet.
+// SAMPLE tiles: the API has no camera list or camera status yet. When NEXT_PUBLIC_PREVIEW_CAMERA_ID is set,
+// the first tile is replaced by that camera's real "Camera preview".
 const sampleCameras: CameraInfo[] = [
   { id: "cam-sample-01", name: "Sample camera 1" },
   { id: "cam-sample-02", name: "Sample camera 2" },
@@ -90,14 +93,23 @@ export default function DashboardPage() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-5">
-        <section className="flex-1 space-y-3" aria-label="Cameras (sample layout)">
-          <div className="flex items-center gap-2">
+        <section className="flex-1 space-y-3" aria-label="Cameras">
+          <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-sm font-bold text-slate-800 dark:text-white">Cameras</h2>
-            <StatusBadge status="SAMPLE" />
-            <span className="text-xs text-slate-500">Placeholder layout, not live data</span>
+            {PREVIEW_CAMERA_ID ? (
+              <span className="text-xs text-slate-500">
+                Camera preview refreshes about every second; tiles marked <StatusBadge status="SAMPLE" /> are placeholders
+              </span>
+            ) : (
+              <>
+                <StatusBadge status="SAMPLE" />
+                <span className="text-xs text-slate-500">Placeholder layout, not live data</span>
+              </>
+            )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {sampleCameras.map((cam) => (
+            {PREVIEW_CAMERA_ID && <CameraPreviewCard cameraId={PREVIEW_CAMERA_ID} />}
+            {(PREVIEW_CAMERA_ID ? sampleCameras.slice(1) : sampleCameras).map((cam) => (
               <CameraCard key={cam.id} camera={cam} />
             ))}
           </div>

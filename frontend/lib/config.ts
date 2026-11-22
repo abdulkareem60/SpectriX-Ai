@@ -5,6 +5,13 @@
 /** Base URL of the FastAPI backend, without a trailing slash. Empty when not configured. */
 export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").trim().replace(/\/+$/, "");
 
+/**
+ * Camera ID whose "Camera preview" the dashboard shows (must match the worker's [camera] id), or "" for sample
+ * tiles only. This is only an identifier: camera stream URLs and passwords stay with the worker.
+ */
+const rawPreviewCamera = (process.env.NEXT_PUBLIC_PREVIEW_CAMERA_ID ?? "").trim();
+export const PREVIEW_CAMERA_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/.test(rawPreviewCamera) ? rawPreviewCamera : "";
+
 export const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? "",
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? "",

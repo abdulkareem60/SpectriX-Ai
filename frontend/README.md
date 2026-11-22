@@ -29,7 +29,8 @@ The console pages live in the `app/(console)/` route group, which adds the sideb
 | Dashboard: New incidents | Real: `GET /v1/incidents?status=new&limit=100` ("100+" when there are more) |
 | Dashboard: Recent Activity | Real: latest 6 incidents, refreshed every 15 s |
 | Incidents page | Real: `GET /v1/incidents`, status filter, "Load more" with `next_cursor` |
-| Camera tiles, cameras online, zone count | **Sample / not available.** The API has no camera, camera-status or zone-listing endpoint yet, so these are labelled and never shown as live |
+| Dashboard: Camera preview | Real: `GET /v1/cameras/{NEXT_PUBLIC_PREVIEW_CAMERA_ID}/preview` about every second. Shows the latest frame the worker analysed, with zones and boxes. States: **Waiting** (no frame yet), **Updating**, **Stale** (no new frame for over 10 s, by the API's clock; image dimmed), **Unavailable** (request failed; image dimmed). Paused while the tab is hidden |
+| Other camera tiles, cameras online, zone count | **Sample / not available.** The API has no camera list, camera-status or zone-listing endpoint yet, so these are labelled and never shown as live |
 
 Each incident view has separate loading, empty, sign-in required, wrong-role (403), session-rejected (401) and API error states. A failed request never shows old data as current.
 
@@ -52,6 +53,7 @@ Copy-Item .env.example .env.local
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | `demo-nigahsense.firebaseapp.com` | Firebase web config |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | `demo-nigahsense` | Must match the backend's `FIREBASE_PROJECT_ID` |
 | `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` | `127.0.0.1:9099` | Auth emulator. Leave empty for real Firebase |
+| `NEXT_PUBLIC_PREVIEW_CAMERA_ID` | `cam-laptop` | Camera shown in the "Camera preview" tile; must equal the worker's `[camera] id`. Only the ID goes here, never a camera URL. Empty = sample tiles only |
 
 These values are built into the page, so restart `npm run dev` after changing them.
 
