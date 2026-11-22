@@ -101,6 +101,7 @@ Set in `backend/.env` (see [`backend/.env.example`](backend/.env.example)). Neve
 | `STORAGE_BACKEND` | No (`firestore`) | `firestore`, or `memory` for throwaway experiments |
 | `WORKER_API_KEYS` | Yes, for ingestion | Comma-separated worker secrets. If empty, `POST /v1/events` returns 503 |
 | `OPERATOR_ROLES` | No | Custom-claim roles allowed on operator endpoints (default `operator,supervisor,admin`) |
+| `ZONE_EDITOR_ROLES` | No | Roles allowed to create or change zones (default `supervisor,admin`); each must also be in `OPERATOR_ROLES` |
 | `CORS_ORIGINS` | No | Allowed frontend origins (default `http://localhost:3000`) |
 | `FIRESTORE_EMULATOR_HOST`, `FIREBASE_AUTH_EMULATOR_HOST` | Local only | Emulator addresses. The app refuses to start with these in production |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Production only | Path to a service-account key kept outside the repo, or omit to use the host identity |
@@ -116,6 +117,9 @@ All errors use `{"error": {"code", "message", "details?"}}`. Timestamps are UTC;
 | `GET /v1/incidents` | Operator | List newest first. Filters: `status`, `camera_id`, `event_type`, `occurred_from`, `occurred_to`; paging with `limit` (1–100) and `cursor` → `next_cursor` |
 | `GET /v1/incidents/{id}` | Operator | One incident |
 | `POST /v1/incidents/{id}/acknowledge` | Operator | Body `{"note"?: string ≤ 500}`. Repeating it keeps the first acknowledgement |
+| `PUT /v1/cameras/{camera_id}/zones/{zone_id}` | Zone editor (supervisor, admin) | Body: a zone v1. Version 1 creates (`201`), the next version updates (`200`), any other version gives `409 version_conflict`. Every version is kept |
+| `GET /v1/cameras/{camera_id}/zones/{zone_id}` | Operator | The current zone, or `404 zone_not_found` |
+| `GET /v1/worker/cameras/{camera_id}/zones` | Vision worker (`X-Worker-Key`) | Every current zone on the camera (the worker uses the enabled ones); empty list if none |
 
 **Operator** means a Firebase ID token (`Authorization: Bearer <token>`) whose custom claim `role` is in `OPERATOR_ROLES`. Without a token the API returns 401; with the wrong role, 403.
 

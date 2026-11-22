@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # Firebase custom-claim roles allowed to use operator endpoints.
     operator_roles: str = "operator,supervisor,admin"
 
+    # Roles allowed to create or change zones (must also be operator roles). Everyone in OPERATOR_ROLES can read zones.
+    zone_editor_roles: str = "supervisor,admin"
+
     # Reject events whose occurred_at is further in the future than this (clock-skew allowance).
     max_future_skew_seconds: int = Field(default=300, ge=0)
 
@@ -46,6 +49,9 @@ class Settings(BaseSettings):
 
     def operator_role_set(self) -> frozenset[str]:
         return frozenset(r.strip() for r in self.operator_roles.split(",") if r.strip())
+
+    def zone_editor_role_set(self) -> frozenset[str]:
+        return frozenset(r.strip() for r in self.zone_editor_roles.split(",") if r.strip()) & self.operator_role_set()
 
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

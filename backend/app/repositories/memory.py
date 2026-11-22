@@ -1,10 +1,12 @@
 """In-process storage for tests and quick experiments. Data is lost when the process stops."""
 
 import threading
+from datetime import datetime
 from typing import Any
 
 from ..schemas.incidents import Incident, IncidentFilters
-from .base import ApplyEvent, IngestOutcome, InvalidCursor, Mutate
+from ..schemas.zones import ZoneV1
+from .base import ApplyEvent, IngestOutcome, InvalidCursor, Mutate, SaveOutcome, VersionConflict, zone_document, zone_from_document
 
 
 def _matches(i: Incident, f: IncidentFilters) -> bool:
@@ -62,3 +64,40 @@ class MemoryIncidentRepository:
 
     def ping(self) -> None:
         return None
+
+
+class MemoryZoneRepository:
+    """In-process zone storage for tests and quick experiments. Same rules as the Firestore version."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._current: dict[tuple[str, str], dict[str, Any]] = {}
+        self._versions: dict[tuple[str, str, int], dict[str, Any]] = {}
+
+    def save(self, zone: ZoneV1, saved_by: str, saved_at: datetime) -> SaveOutcome:
+        key = (zone.camera_id, zone.zone_id)
+        with self._lock:
+            current = self._current.get(key)
+            stored = current["version"] if current else 0
+            if zone.version != stored + 1 or (*key, zone.version) in self._versions:
+                raise VersionConflict(stored)
+            doc = zone_document(zone, saved_by, saved_at)
+            self._current[key] = doc
+            self._versions[(*key, zone.version)] = dict(doc)
+            return "created" if stored == 0 else "updated"
+
+    def get(self, camera_id: str, zone_id: str) -> ZoneV1 | None:
+        with self._lock:
+            doc = self._current.get((camera_id, zone_id))
+        return zone_from_document(doc) if doc else None
+
+    def get_version(self, camera_id: str, zone_id: str, version: int) -> ZoneV1 | None:
+        with self._lock:
+            doc = self._versions.get((camera_id, zone_id, version))
+        return zone_from_document(doc) if doc else None
+
+    def list_current(self, camera_id: str) -> list[ZoneV1]:
+        with self._lock:
+            docs = [d for (cam, _), d in sorted(self._current.items()) if cam == camera_id]
+        return [zone_from_document(d) for d in docs]
+

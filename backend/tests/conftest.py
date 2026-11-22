@@ -7,9 +7,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config import Settings, get_settings
-from app.dependencies import get_repository
+from app.dependencies import get_repository, get_zone_repository
 from app.main import create_app
-from app.repositories.memory import MemoryIncidentRepository
+from app.repositories.memory import MemoryIncidentRepository, MemoryZoneRepository
 from app.security import get_token_verifier
 
 CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
@@ -21,6 +21,8 @@ class FakeVerifier:
 
     TOKENS = {
         "operator-token": {"uid": "op-1", "role": "operator", "email": "op@example.test"},
+        "supervisor-token": {"uid": "sup-1", "role": "supervisor"},
+        "admin-token": {"uid": "adm-1", "role": "admin"},
         "viewer-token": {"uid": "viewer-1", "role": "viewer"},
         "norole-token": {"uid": "nobody-1"},
     }
@@ -42,16 +44,24 @@ def repo() -> MemoryIncidentRepository:
 
 
 @pytest.fixture
-def client(settings: Settings, repo: MemoryIncidentRepository) -> TestClient:
+def zone_repo() -> MemoryZoneRepository:
+    return MemoryZoneRepository()
+
+
+@pytest.fixture
+def client(settings: Settings, repo: MemoryIncidentRepository, zone_repo: MemoryZoneRepository) -> TestClient:
     app = create_app()
     app.dependency_overrides[get_settings] = lambda: settings
     app.dependency_overrides[get_repository] = lambda: repo
+    app.dependency_overrides[get_zone_repository] = lambda: zone_repo
     app.dependency_overrides[get_token_verifier] = lambda: FakeVerifier()
     return TestClient(app)
 
 
 WORKER = {"X-Worker-Key": WORKER_KEY}
 OPERATOR = {"Authorization": "Bearer operator-token"}
+SUPERVISOR = {"Authorization": "Bearer supervisor-token"}
+ADMIN = {"Authorization": "Bearer admin-token"}
 
 
 def load_example(name: str) -> dict[str, Any]:
