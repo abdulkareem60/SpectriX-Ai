@@ -6,8 +6,11 @@ import threading
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
+
+import numpy as np
 
 from .annotate import VideoSink, draw
 from .detection import PersonTracker
@@ -26,6 +29,14 @@ class RunStats:
     max_people: int = 0
     events: list[dict[str, Any]] = field(default_factory=list)
     seconds: float = 0.0
+
+
+class PreviewSink(Protocol):
+    """Receives an annotated frame about once per interval (see preview.PreviewUploader). Must not block."""
+
+    def due(self) -> bool: ...
+
+    def submit(self, image: np.ndarray, captured_at: datetime) -> None: ...
 
 
 class EventLog:
@@ -60,6 +71,7 @@ def run_pipeline(
     max_frames: int | None = None,
     zone_update: Callable[[], list[Zone] | None] | None = None,
     frame_check: Callable[[int, int], None] | None = None,
+    preview: PreviewSink | None = None,
 ) -> RunStats:
     stats = RunStats()
     sink: VideoSink | None = None
@@ -94,8 +106,12 @@ def run_pipeline(
                     event_log.write({"type": "event_emitted", "frame": frame.index, "event": event})
                 publish(event)
 
-            if annotated_path or show_window:
+            # Events are already handed to the publisher above, so the preview never delays an alert.
+            preview_due = preview is not None and preview.due()
+            if annotated_path or show_window or preview_due:
                 img = draw(frame.image, rule.zones, people, rule, f"frame {frame.index}", len(stats.events))
+                if preview_due:
+                    preview.submit(img, frame.captured_at)  # draw() returns a new array, so it is safe to hand over
                 if annotated_path:
                     if sink is None:
                         sink = VideoSink(annotated_path, fps_hint() / frame_stride, (w, h))

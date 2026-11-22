@@ -79,6 +79,15 @@ class RuleConfig(_Strict):
     anchor: Literal["bottom_center", "center"] = "bottom_center"
 
 
+class PreviewConfig(_Strict):
+    """Near-live "Camera preview" on the dashboard: a small JPEG of the analysed frames, sent to the API."""
+
+    enabled: bool = False  # opt in: it sends camera images to the API
+    interval_seconds: float = Field(default=1.0, ge=0.2, le=60.0)
+    max_width: int = Field(default=640, ge=160, le=1920)
+    jpeg_quality: int = Field(default=70, ge=30, le=95)
+
+
 class OutputConfig(_Strict):
     event_log: str | None = "runtime/events.jsonl"
     outbox: str = "runtime/outbox.jsonl"
@@ -94,6 +103,7 @@ class WorkerConfig(_Strict):
     zones: list[ZoneConfig] = Field(default_factory=list)
     rule: RuleConfig = RuleConfig()
     output: OutputConfig = OutputConfig()
+    preview: PreviewConfig = PreviewConfig()
 
     @field_validator("zones")
     @classmethod

@@ -24,7 +24,12 @@ How the parts fit together **as built today**, and where planned parts will conn
               Media storage: snapshots/clips (Proposed, provider to confirm)
 ```
 
-Video never passes through the API or Firestore. Only small JSON events and incident records do.
+Video never passes through the API or Firestore. Only small JSON events and incident records do. The one exception is the optional **camera preview**:
+- the worker sends one small JPEG about every second (`[preview] enabled = true`);
+- the API keeps only the latest frame per camera, **in memory** (never Firestore or disk), and serves it to signed-in operators;
+- it is a periodically refreshed picture for the dashboard, not a video stream or a recording.
+
+With several API instances, it would need a shared store (for example Redis). Smooth live video would need a media server and is not planned for this milestone.
 
 ## Components
 

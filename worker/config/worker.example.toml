@@ -52,3 +52,9 @@ event_log = "runtime/events.jsonl"   # local log of emitted events and API repli
 outbox = "runtime/outbox.jsonl"      # events not yet delivered (re-sent on next start)
 # annotated_video = "runtime/annotated.mp4"
 show_window = false
+
+[preview]
+enabled = false          # true: send a small JPEG of the analysed frames for the dashboard's "Camera preview"
+interval_seconds = 1.0   # about one frame per second; never slows detection
+max_width = 640
+jpeg_quality = 70

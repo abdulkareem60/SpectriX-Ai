@@ -19,6 +19,7 @@ from pydantic import ValidationError
 from .config import WorkerEnv, load_config
 from .events import new_session_id
 from .pipeline import EventLog, run_pipeline
+from .preview import PreviewUploader
 from .publisher import EventApiClient, EventPublisher, SendResult
 from .rules import RestrictedZoneRule
 from .sources import SourceError, open_source
@@ -39,6 +40,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--annotated", help="save an annotated review video to this .mp4 path")
     p.add_argument("--max-frames", type=int, help="stop after N frames (quick checks)")
     p.add_argument("--dry-run", action="store_true", help="detect and log events but do not send them to the API")
+    p.add_argument("--no-preview", action="store_true", help="do not send the camera preview even if [preview] enabled = true")
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args(argv)
 
@@ -144,6 +146,22 @@ def main(argv: list[str] | None = None) -> int:
             log.info("Re-sending %d event(s) saved by a previous run", replayed)
         publish = publisher.publish
 
+    preview: PreviewUploader | None = None
+    pv = cfg.preview
+    if pv.enabled and (args.dry_run or args.no_preview):
+        log.info("Camera preview off (%s)", "--dry-run" if args.dry_run else "--no-preview")
+    elif pv.enabled:
+        try:
+            preview = PreviewUploader(env.nigahsense_api_url, env.nigahsense_worker_key.get_secret_value(), cfg.camera.id,
+                                      pv.interval_seconds, pv.max_width, pv.jpeg_quality,
+                                      timeout=min(5.0, env.nigahsense_request_timeout_seconds))
+        except ValueError as e:
+            log.error("%s Set it in worker/.env, or set [preview] enabled = false.", e)
+            return 2
+        preview.start()
+        log.info("Camera preview on: a %d-px JPEG about every %gs to the API for camera %s",
+                 pv.max_width, pv.interval_seconds, cfg.camera.id)
+
     log.info("Camera %s | source %s | detector %s | zones %s (%s) | session %s%s",
              cfg.camera.id, source.describe, tracker.describe(), [z.id for z in zones],
              f"from API, checked every {cfg.camera.zone_poll_seconds:g}s" if sync else "from config file", session_id, " | DRY RUN" if args.dry_run else "")
@@ -158,6 +176,7 @@ def main(argv: list[str] | None = None) -> int:
             annotated_path=args.annotated or cfg.output.annotated_video, show_window=args.show or cfg.output.show_window,
             fps_hint=lambda: source.fps, max_frames=args.max_frames,
             zone_update=sync.take_update if sync else None, frame_check=sync.check_frame if sync else None,
+            preview=preview,
         )
         log.info("Done: %d frames read, %d processed in %.1fs, up to %d people at once, %d event(s) emitted",
                  stats.frames_read, stats.frames_processed, stats.seconds, stats.max_people, len(stats.events))
@@ -165,6 +184,9 @@ def main(argv: list[str] | None = None) -> int:
         log.error("%s", e)
         code = 2
     finally:
+        if preview:
+            preview.close()
+            log.info("Camera preview: %d sent, %d failed, %d skipped while busy", preview.sent, preview.failed, preview.dropped)
         if sync:
             sync.close()
         if publisher:

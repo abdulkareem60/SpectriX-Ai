@@ -62,6 +62,7 @@ On the sample video this sends 2 events, one per person, at about 53 s into the 
 | `--webcam-index 0` | Use a local webcam |
 | `--source rtsp` | Use the RTSP URL in `NIGAHSENSE_RTSP_URL` |
 | `--max-frames N` | Stop after N frames |
+| `--no-preview` | Don't send the camera preview, even if `[preview] enabled = true` |
 
 **What you can see:** the console logs each entry and each API reply. `runtime/events.jsonl` records every event and API result. `runtime/outbox.jsonl` holds events that could not be delivered yet.
 
@@ -76,6 +77,74 @@ On the sample video this sends 2 events, one per person, at about 53 s into the 
 | Webcam/RTSP drops | Reconnects with exponential backoff (1 s doubling to 30 s), forever unless `max_reconnect_attempts` is set |
 | Ctrl+C | Finishes the frame, gives queued events up to 15 s to send, and saves the rest to the outbox. A second Ctrl+C exits immediately |
 | Annotated video (`--annotated x.mp4`) | Written as `x.partial.mp4` and renamed to `x.mp4` only when the worker stops normally (end of video, `q`, Ctrl+C), because an MP4 becomes playable only once it is finalized. If the worker is killed or its window closed, only the unplayable `x.partial.mp4` remains: rerun to get the video. Codec is H.264 on Windows (Media Foundation) and MPEG-4 Part 2 elsewhere |
+| Camera preview upload fails or is slow | Logged (at most every 30 s) and skipped; detection and alerts carry on. Only the newest frame is ever waiting, so nothing piles up |
+
+## Camera preview on the dashboard
+
+With `[preview] enabled = true`, the worker sends a small JPEG of the frames it analyses to the API about once per second. The JPEG includes the zone outline, person boxes and track IDs. The dashboard's "Camera preview" tile shows it to signed-in operators.
+
+```toml
+[preview]
+enabled = true          # off by default: it sends camera images to the API
+interval_seconds = 1.0  # 0.2 - 60
+max_width = 640         # frames are scaled down to this width
+jpeg_quality = 70       # 30 - 95
+```
+
+- **Never blocks detection.** The pipeline hands over a frame and moves on. A separate thread encodes and uploads it (`PUT /v1/worker/cameras/{camera_id}/preview`, worker key). If an upload is still running, the waiting frame is replaced, not queued.
+- **Same camera ID as the incidents.** The preview is keyed by `[camera] id`, the same value as `camera_id` in every event. Set the dashboard's `NEXT_PUBLIC_PREVIEW_CAMERA_ID` to the same value.
+- **What reaches the API:** only the finished JPEG. The camera URL and any password stay in the worker's environment.
+- The API keeps only the latest frame per camera, in memory. It is not stored in Firestore and is gone when the API restarts.
+- `--dry-run` or `--no-preview` turns it off for that run. The run ends with `Camera preview: N sent, N failed, N skipped while busy`.
+
+## Using a laptop webcam or a phone as the camera
+
+### Laptop webcam
+
+1. Create `runtime/webcam.toml` (the `runtime/` folder is Git-ignored), starting from `config/worker.example.toml`, with:
+   ```toml
+   [camera]
+   id = "cam-laptop"
+
+   [source]
+   type = "webcam"
+   device_index = 0
+
+   [[zones]]
+   id = "zone-desk-right"
+   name = "Restricted: right half of the view"
+   points = [[0.50, 0.00], [1.00, 0.00], [1.00, 1.00], [0.50, 1.00]]
+
+   [rule]
+   anchor = "center"   # a webcam rarely sees feet; use the middle of the person's box
+
+   [preview]
+   enabled = true
+   ```
+2. Check the camera opens without the API: `.venv\Scripts\python -m nigah_worker --config runtime\webcam.toml --show --dry-run --max-frames 300`. You should see `Opened webcam 0`.
+3. Run it for real (API running, key in `worker/.env`): `.venv\Scripts\python -m nigah_worker --config runtime\webcam.toml`.
+
+If the webcam doesn't open, close other apps using it (Teams, Zoom, Camera), or try `device_index = 1`. On a laptop CPU, expect about 1-2 processed frames per second with `yolo26s`. That is enough for entries, which need 3 frames inside the zone.
+
+### Phone as a second webcam (simplest; Android or iPhone)
+
+1. Install **DroidCam** or **Iriun Webcam** on the phone and its Windows client on the laptop. Both must be on the same Wi-Fi.
+2. Start the phone app, then the Windows client. The phone now appears to Windows as another webcam.
+3. In the worker config, use `type = "webcam"` and `device_index = 1` (try `2` if 1 is not the phone), with a different camera ID, for example `id = "cam-phone"`.
+4. Set `NEXT_PUBLIC_PREVIEW_CAMERA_ID=cam-phone` in `frontend/.env.local` and restart the dashboard.
+
+### Phone as a network camera (Android, no Windows client)
+
+1. Install **IP Webcam** on the phone and tap **Start server**. The app shows the phone's address, for example `http://192.168.1.23:8080`.
+2. Find the stream URL the app lists. For RTSP it is usually `rtsp://192.168.1.23:8080/h264_ulaw.sdp`; check the app's help screen for the exact path.
+3. Use `type = "rtsp"` in the config and put the URL in the **PowerShell session**, not in a file:
+   ```powershell
+   $env:NIGAHSENSE_RTSP_URL = "rtsp://192.168.1.23:8080/h264_ulaw.sdp"
+   .venv\Scripts\python -m nigah_worker --config runtime\phone.toml --show --dry-run --max-frames 300
+   ```
+   A URL set only in `worker/.env` is currently **not** read for RTSP (known issue). The log shows the address with any password removed.
+
+The stream address never goes to the API or the dashboard; only the JPEG preview does.
 
 ## Zones
 
