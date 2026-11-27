@@ -66,6 +66,13 @@ class ZoneV1(BaseModel):
         return polygon_area([(p.x, p.y) for p in self.points])
 
 
+class WorkerZoneList(BaseModel):
+    """What the vision worker receives: every current zone on its camera. The worker uses the enabled ones."""
+
+    camera_id: IdStr
+    zones: list[ZoneV1]
+
+
 def points_from_pairs(pairs: list[tuple[float, float]] | list[list[float]]) -> list[dict[str, float]]:
     """Convert the TOML / worker form [[x, y], ...] to the contract form [{"x": x, "y": y}, ...], same order."""
     return [{"x": float(x), "y": float(y)} for x, y in pairs]

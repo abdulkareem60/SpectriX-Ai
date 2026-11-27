@@ -19,9 +19,11 @@ from pydantic import ValidationError
 from .config import WorkerEnv, load_config
 from .events import new_session_id
 from .pipeline import EventLog, run_pipeline
+from .preview import PreviewUploader
 from .publisher import EventApiClient, EventPublisher, SendResult
 from .rules import RestrictedZoneRule
 from .sources import SourceError, open_source
+from .zone_sync import ZoneApiClient, ZoneSync, ZoneSyncError
 from .zones import Zone
 
 log = logging.getLogger("nigah_worker")
@@ -38,6 +40,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--annotated", help="save an annotated review video to this .mp4 path")
     p.add_argument("--max-frames", type=int, help="stop after N frames (quick checks)")
     p.add_argument("--dry-run", action="store_true", help="detect and log events but do not send them to the API")
+    p.add_argument("--no-preview", action="store_true", help="do not send the camera preview even if [preview] enabled = true")
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args(argv)
 
@@ -102,7 +105,19 @@ def main(argv: list[str] | None = None) -> int:
         log.error("Could not load detector %s: %s", cfg.detector.model, e)
         return 2
 
-    zones = [Zone(z.id, z.name, tuple(z.points)) for z in cfg.zones]
+    sync: ZoneSync | None = None
+    if cfg.camera.zones_source == "api":
+        if cfg.zones:
+            log.warning("[camera] zones_source = \"api\": the %d [[zones]] block(s) in %s are ignored", len(cfg.zones), args.config)
+        try:
+            zone_client = ZoneApiClient(env.nigahsense_api_url, env.nigahsense_worker_key.get_secret_value(), env.nigahsense_request_timeout_seconds)
+            sync = ZoneSync(zone_client, cfg.camera.id, cfg.output.zones_cache, cfg.camera.zone_poll_seconds, stop)
+            zones = sync.initial()
+        except (ValueError, ZoneSyncError) as e:
+            log.error("%s", e)
+            return 2
+    else:
+        zones = [Zone(z.id, z.name, tuple(z.points)) for z in cfg.zones]
     r = cfg.rule
     rule = RestrictedZoneRule(zones, r.min_score, r.confirm_frames, r.exit_frames, r.track_gap_seconds, r.reentry_cooldown_seconds, r.anchor)
     session_id = new_session_id()
@@ -131,8 +146,27 @@ def main(argv: list[str] | None = None) -> int:
             log.info("Re-sending %d event(s) saved by a previous run", replayed)
         publish = publisher.publish
 
-    log.info("Camera %s | source %s | detector %s | zones %s | session %s%s",
-             cfg.camera.id, source.describe, tracker.describe(), [z.id for z in zones], session_id, " | DRY RUN" if args.dry_run else "")
+    preview: PreviewUploader | None = None
+    pv = cfg.preview
+    if pv.enabled and (args.dry_run or args.no_preview):
+        log.info("Camera preview off (%s)", "--dry-run" if args.dry_run else "--no-preview")
+    elif pv.enabled:
+        try:
+            preview = PreviewUploader(env.nigahsense_api_url, env.nigahsense_worker_key.get_secret_value(), cfg.camera.id,
+                                      pv.interval_seconds, pv.max_width, pv.jpeg_quality,
+                                      timeout=min(5.0, env.nigahsense_request_timeout_seconds))
+        except ValueError as e:
+            log.error("%s Set it in worker/.env, or set [preview] enabled = false.", e)
+            return 2
+        preview.start()
+        log.info("Camera preview on: a %d-px JPEG about every %gs to the API for camera %s",
+                 pv.max_width, pv.interval_seconds, cfg.camera.id)
+
+    log.info("Camera %s | source %s | detector %s | zones %s (%s) | session %s%s",
+             cfg.camera.id, source.describe, tracker.describe(), [z.id for z in zones],
+             f"from API, checked every {cfg.camera.zone_poll_seconds:g}s" if sync else "from config file", session_id, " | DRY RUN" if args.dry_run else "")
+    if sync:
+        sync.start()
 
     code = 0
     try:
@@ -141,6 +175,8 @@ def main(argv: list[str] | None = None) -> int:
             frame_stride=cfg.detector.frame_stride, event_log=event_log,
             annotated_path=args.annotated or cfg.output.annotated_video, show_window=args.show or cfg.output.show_window,
             fps_hint=lambda: source.fps, max_frames=args.max_frames,
+            zone_update=sync.take_update if sync else None, frame_check=sync.check_frame if sync else None,
+            preview=preview,
         )
         log.info("Done: %d frames read, %d processed in %.1fs, up to %d people at once, %d event(s) emitted",
                  stats.frames_read, stats.frames_processed, stats.seconds, stats.max_people, len(stats.events))
@@ -148,6 +184,11 @@ def main(argv: list[str] | None = None) -> int:
         log.error("%s", e)
         code = 2
     finally:
+        if preview:
+            preview.close()
+            log.info("Camera preview: %d sent, %d failed, %d skipped while busy", preview.sent, preview.failed, preview.dropped)
+        if sync:
+            sync.close()
         if publisher:
             publisher.close()
             log.info("Publisher: %d sent, %d failed or saved to %s", publisher.sent, publisher.failed, cfg.output.outbox)

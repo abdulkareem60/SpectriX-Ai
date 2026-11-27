@@ -75,6 +75,16 @@ def require_operator(
     return Principal(uid=str(claims.get("uid") or claims.get("sub")), role=role, email=claims.get("email"))
 
 
+def require_zone_editor(
+    principal: Annotated[Principal, Depends(require_operator)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> Principal:
+    """A signed-in operator whose role may create or change zones (ZONE_EDITOR_ROLES, default supervisor and admin)."""
+    if principal.role not in settings.zone_editor_role_set():
+        raise ApiError(403, "forbidden", "Only supervisors and admins can change zones.")
+    return principal
+
+
 def require_worker(
     settings: Annotated[Settings, Depends(get_settings)],
     x_worker_key: Annotated[str | None, Header()] = None,

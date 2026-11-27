@@ -24,7 +24,12 @@ How the parts fit together **as built today**, and where planned parts will conn
               Media storage: snapshots/clips (Proposed, provider to confirm)
 ```
 
-Video never passes through the API or Firestore. Only small JSON events and incident records do.
+Video never passes through the API or Firestore. Only small JSON events and incident records do. The one exception is the optional **camera preview**:
+- the worker sends one small JPEG about every second (`[preview] enabled = true`);
+- the API keeps only the latest frame per camera, **in memory** (never Firestore or disk), and serves it to signed-in operators;
+- it is a periodically refreshed picture for the dashboard, not a video stream or a recording.
+
+With several API instances, it would need a shared store (for example Redis). Smooth live video would need a media server and is not planned for this milestone.
 
 ## Components
 
@@ -118,7 +123,7 @@ Frontend mock data must match the contract examples exactly, so switching to the
 
 - **Next.js frontend:** sign-in, plus calling the API with the user's ID token.
 - **Media upload and evidence links**, with a storage provider to confirm.
-- **Configuration through the API instead of TOML:** cameras, zones and schedules, stored in Firestore, read by the worker. The zone payload is already defined: [zone contract v1](../contracts/README.md#zone-v1), with validation in `backend/app/schemas/zones.py`. Endpoints, storage and the worker side are not built yet.
+- **Configuration through the API instead of TOML:** cameras, zones and schedules, stored in Firestore, read by the worker. The zone payload is already defined: [zone contract v1](../contracts/README.md#zone-v1), with validation in `backend/app/schemas/zones.py`. Built so far: zone save/load with version history (`PUT`/`GET /v1/cameras/{camera_id}/zones/{zone_id}`), and the worker reading zones from the API with live updates (`zones_source = "api"`). Not built: zone listing for the editor, cameras, schedules, and snapshots.
 - **Camera health:** a worker heartbeat to the API, and an offline incident.
 - **More event types and their services:** loitering, line crossing, occupancy, unattended objects, possible fall; plus recognition and reports.
 - **Deployment and hosting:** to confirm ([project brief §9](project-brief.md#9-open-decisions)).

@@ -84,6 +84,27 @@ The limits are also listed in the schema under `x-nigahsense-polygon-rules`, and
 
 **From TOML.** A TOML zone `points = [[0.00, 0.50], [0.42, 0.63], …]` becomes `[{"x": 0.0, "y": 0.5}, {"x": 0.42, "y": 0.63}, …]` (`points_from_pairs` in the API model). The worker tests confirm the converted sample zone gives identical inside/outside decisions. The TOML loader and detection are unchanged.
 
+### Zone endpoints
+
+| Request | Who | Result |
+|---|---|---|
+| `PUT /v1/cameras/{camera_id}/zones/{zone_id}` with a zone v1 body | `supervisor` or `admin` (`ZONE_EDITOR_ROLES`) | `201` on create (`version` 1), `200` on update (`version` = current + 1). Returns the saved zone |
+| `GET /v1/cameras/{camera_id}/zones/{zone_id}` | Any operator role | `200` with the current zone, exactly as saved |
+| `GET /v1/worker/cameras/{camera_id}/zones` | Vision worker (`X-Worker-Key` only; user tokens are refused) | `200` with `{"camera_id", "zones": [zone v1, …]}`: every current zone, enabled or not, sorted by `zone_id`; `[]` if none |
+
+How saving works:
+- **Versions prevent lost edits.** Send `version` 1 to create; to update, send the version you loaded **plus one**. Anything else returns `409 version_conflict` with `details: {"current_version", "expected_version"}`, and nothing is saved. When that happens, the editor should reload the zone and let the operator reapply the change.
+- **Every version is kept.** The current zone is at `cameras/{camera_id}/zones/{zone_id}`, and an immutable copy of each version at `…/versions/{version}`. Both are written in one Firestore transaction, and an existing version is never overwritten. Each document also records who saved it and when (`saved_by`, `saved_at`); these fields are not returned in the zone.
+- **Errors:**
+  - `422 validation_error`: invalid zone, with the same messages as the model;
+  - `422 path_body_mismatch`: `camera_id` or `zone_id` in the body differs from the URL;
+  - `401`: not signed in;
+  - `403`: role not allowed (the worker key cannot change zones);
+  - `404 zone_not_found`: no such zone.
+- **To disable a zone,** save the next version with `"enabled": false`. There is no delete.
+
+The worker reads zones from the API when its config sets `[camera] zones_source = "api"` (see [worker/README.md](../worker/README.md#zones-from-the-api)). Not built yet: listing zones for the editor, and reference-frame snapshots.
+
 ### Decision: zone versions in incidents (later step)
 
 When zones come from the API, each event must record **which zone shape triggered it**. The agreed approach:

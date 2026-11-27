@@ -87,6 +87,19 @@ class RestrictedZoneRule:
     def reset(self) -> None:
         self._states.clear()
 
+    def set_zones(self, zones: list[Zone]) -> None:
+        """Replace the zones between frames (e.g. after an edit saved through the API).
+
+        State is kept for zones whose id and shape are unchanged, so nobody is alerted twice for them.
+        For a changed or removed zone the state is dropped: a person standing inside a changed zone
+        is treated as a new entry and alerts after `confirm_frames`, which is the safe behaviour
+        for a restricted area.
+        """
+        old = {z.id: z.points for z in self.zones}
+        unchanged = {z.id for z in zones if old.get(z.id) == z.points}
+        self._states = {k: s for k, s in self._states.items() if k[1] in unchanged}
+        self.zones = list(zones)
+
     def is_inside(self, track_id: int, zone_id: str) -> bool:
         st = self._states.get((track_id, zone_id))
         return bool(st and st.inside)

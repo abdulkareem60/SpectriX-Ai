@@ -6,6 +6,7 @@ Layout:
 """
 
 import os
+from datetime import datetime
 from typing import Any
 
 from google.api_core.exceptions import NotFound
@@ -14,7 +15,8 @@ from google.cloud import firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 from ..schemas.incidents import Incident, IncidentFilters
-from .base import ApplyEvent, IngestOutcome, InvalidCursor, Mutate
+from ..schemas.zones import ZoneV1
+from .base import ApplyEvent, IngestOutcome, InvalidCursor, Mutate, SaveOutcome, VersionConflict, zone_document, zone_from_document
 
 INCIDENTS = "incidents"
 EVENTS = "events"
@@ -105,3 +107,55 @@ class FirestoreIncidentRepository:
     def ping(self) -> None:
         # Cheap read; raises if the database or emulator is unreachable.
         next(iter(self._col.limit(1).stream()), None)
+
+
+# ---------------------------------------------------------------- zones
+CAMERAS = "cameras"
+ZONES = "zones"
+VERSIONS = "versions"
+
+
+class FirestoreZoneRepository:
+    """Zones in Firestore.
+
+    Layout:
+      cameras/{camera_id}/zones/{zone_id}                      the current version
+      cameras/{camera_id}/zones/{zone_id}/versions/{version}   immutable copy of every saved version
+    """
+
+    def __init__(self, client: firestore.Client) -> None:
+        self._db = client
+
+    def _zone_ref(self, camera_id: str, zone_id: str):
+        return self._db.collection(CAMERAS).document(camera_id).collection(ZONES).document(zone_id)
+
+    def save(self, zone: ZoneV1, saved_by: str, saved_at: datetime) -> SaveOutcome:
+        cur_ref = self._zone_ref(zone.camera_id, zone.zone_id)
+        ver_ref = cur_ref.collection(VERSIONS).document(str(zone.version))
+
+        @firestore.transactional
+        def run(txn: firestore.Transaction) -> SaveOutcome:
+            cur = cur_ref.get(transaction=txn)
+            ver = ver_ref.get(transaction=txn)
+            stored = int((cur.to_dict() or {}).get("version", 0)) if cur.exists else 0
+            if zone.version != stored + 1 or ver.exists:
+                raise VersionConflict(stored)
+            doc = zone_document(zone, saved_by, saved_at)
+            txn.set(cur_ref, doc)
+            txn.create(ver_ref, doc)  # create() fails if the version document already exists: versions are never overwritten
+            return "created" if stored == 0 else "updated"
+
+        return run(self._db.transaction())
+
+    def get(self, camera_id: str, zone_id: str) -> ZoneV1 | None:
+        snap = self._zone_ref(camera_id, zone_id).get()
+        return zone_from_document(snap.to_dict()) if snap.exists else None
+
+    def get_version(self, camera_id: str, zone_id: str, version: int) -> ZoneV1 | None:
+        snap = self._zone_ref(camera_id, zone_id).collection(VERSIONS).document(str(version)).get()
+        return zone_from_document(snap.to_dict()) if snap.exists else None
+
+    def list_current(self, camera_id: str) -> list[ZoneV1]:
+        # Only the current documents: version copies live one level deeper, in each zone's `versions` subcollection.
+        snaps = self._db.collection(CAMERAS).document(camera_id).collection(ZONES).stream()
+        return sorted((zone_from_document(s.to_dict()) for s in snaps), key=lambda z: z.zone_id)

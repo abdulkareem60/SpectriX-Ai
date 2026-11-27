@@ -5,6 +5,8 @@
 [camera]
 id = "cam-demo-plaza"            # lowercase letters, digits, - or _ (max 64). Must match the camera ID agreed with the API/frontend.
 name = "Demo plaza (OpenCV sample video)"
+# zones_source = "api"         # take zones from the API instead of [[zones]] below; saved changes apply without a restart
+# zone_poll_seconds = 10       # how often the worker checks the API for changed zones (api mode)
 
 [source]
 type = "file"                    # "file" (recorded video), "webcam" (local camera) or "rtsp" (network camera)
@@ -50,3 +52,9 @@ event_log = "runtime/events.jsonl"   # local log of emitted events and API repli
 outbox = "runtime/outbox.jsonl"      # events not yet delivered (re-sent on next start)
 # annotated_video = "runtime/annotated.mp4"
 show_window = false
+
+[preview]
+enabled = false          # true: send a small JPEG of the analysed frames for the dashboard's "Camera preview"
+interval_seconds = 1.0   # about one frame per second; never slows detection
+max_width = 640
+jpeg_quality = 70
