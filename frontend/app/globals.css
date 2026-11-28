@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Shared theme. Dashboard tokens (Minal) and landing/sign-in tokens (Musaykah) live together;
+   the `.dark` class on <html> switches both (see components/ThemeToggle.tsx). */
+:root {
+  --background: #f1f5f9;
+  --foreground: #0f172a;
+  --cyan: #22d3ee;
+
+  --bg: #f8f9f7;
+  --card: #ffffff;
+  --raised: #eef1ee;
+  --line: rgba(16, 28, 44, 0.1);
+  --fg: #101c2c;
+  --fg2: #4a5868;
+  --fg3: #6b7888;
+  --brand: #0b7f73;
+  --float: 0 16px 48px rgba(16, 28, 44, 0.1);
+}
+
+.dark {
+  --background: #020617;
+  --foreground: #f1f5f9;
+
+  --bg: #0a111b;
+  --card: #101c2c;
+  --raised: #162538;
+  --line: rgba(248, 249, 247, 0.1);
+  --fg: #f8f9f7;
+  --fg2: #a9b4c2;
+  --fg3: #7f8c9c;
+  --brand: #27c6b5;
+  --float: 0 16px 48px rgba(0, 0, 0, 0.4);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-cyan-glow: var(--cyan);
+
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-fg: var(--fg);
+  --color-fg2: var(--fg2);
+  --color-fg3: var(--fg3);
+  --color-brand: var(--brand);
+  --color-navy: #101c2c;
+  --color-teal: #27c6b5;
+
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
